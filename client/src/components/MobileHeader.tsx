@@ -44,6 +44,7 @@ export function MobileHeader() {
           {/* Settings Button */}
           <button
             onClick={() => setLocation('/settings')}
+            aria-label="設定"
             className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-colors"
           >
             <Settings className="w-4 h-4" />
@@ -52,6 +53,8 @@ export function MobileHeader() {
           {/* Info Button */}
           <button
             onClick={() => setShowDisclaimer(!showDisclaimer)}
+            aria-label="免責事項を表示"
+            aria-expanded={showDisclaimer}
             className={cn(
               'flex items-center justify-center w-8 h-8 rounded-full transition-colors',
               showDisclaimer
