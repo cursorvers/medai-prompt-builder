@@ -5,7 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite --host",
+    "dev:minimal": "cp .env.minimal .env.local && vite --host",
     "build": "vite build",
+    "build:minimal": "cp .env.minimal .env.local && vite build",
+    "build:full": "cp .env.production .env.local && vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
