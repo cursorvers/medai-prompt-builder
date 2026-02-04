@@ -1,21 +1,24 @@
 /**
  * Medical AI Prompt Builder - Mobile Header Component
- * Design: Medical Precision (Swiss Design × Medical Device UI)
+ * Design: Medical Precision 2.0 - Heavy yet Light
  * 
  * Features:
  * - Compact mobile-optimized header
  * - Collapsible disclaimer
+ * - Settings navigation
  * - Touch-friendly interactions
  */
 
 import { useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { AlertTriangle, Info, Settings } from 'lucide-react';
 import { DISCLAIMER_LINES, TEMPLATE_BASE_DATE } from '@/lib/presets';
 import { cn } from '@/lib/utils';
 
 const ICON_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310419663031602391/cUYiFGjZlajscqpc.png';
 
 export function MobileHeader() {
+  const [, setLocation] = useLocation();
   const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   return (
@@ -41,6 +44,16 @@ export function MobileHeader() {
               </span>
             </div>
           </div>
+          
+          {/* Settings Button */}
+          <button
+            onClick={() => setLocation('/settings')}
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          
+          {/* Info Button */}
           <button
             onClick={() => setShowDisclaimer(!showDisclaimer)}
             className={cn(

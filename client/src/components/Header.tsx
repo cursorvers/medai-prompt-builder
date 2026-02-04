@@ -6,15 +6,20 @@
  * - Premium app branding with icon
  * - Disclaimer display with elegant styling
  * - Template base date indicator
+ * - Settings navigation
  * - Desktop-optimized layout
  */
 
-import { AlertTriangle, Calendar, Shield } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { AlertTriangle, Calendar, Shield, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { DISCLAIMER_LINES, TEMPLATE_BASE_DATE } from '@/lib/presets';
 
 const ICON_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310419663031602391/cUYiFGjZlajscqpc.png';
 
 export function Header() {
+  const [, setLocation] = useLocation();
+  
   return (
     <header className="hidden lg:block sticky top-0 z-50 bg-card/95 backdrop-blur-xl border-b border-border">
       {/* Main header row */}
@@ -42,13 +47,22 @@ export function Header() {
             </div>
           </div>
           
-          {/* Date Badge */}
+          {/* Right side: Date Badge + Settings */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/80 px-4 py-2 rounded-lg border border-border">
               <Calendar className="w-4 h-4 text-primary" />
               <span className="font-medium">テンプレート基準日:</span>
               <span className="font-mono text-foreground">{TEMPLATE_BASE_DATE}</span>
             </div>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setLocation('/settings')}
+              className="h-10 w-10 rounded-lg"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </div>

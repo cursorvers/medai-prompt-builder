@@ -1,11 +1,18 @@
 /**
  * Medical AI Prompt Builder - Config State Management Hook
- * Design: Medical Precision (Swiss Design × Medical Device UI)
+ * Design: Medical Precision 2.0 - Heavy yet Light
+ * 
+ * Features:
+ * - State management for app configuration
+ * - LocalStorage persistence
+ * - URL parameter import
+ * - Custom preset support
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   type AppConfig,
+  type TabPreset,
   STORAGE_KEY,
   TAB_PRESETS,
   createDefaultConfig,
@@ -13,6 +20,27 @@ import {
   type ValidationResult,
 } from '@/lib/presets';
 import { decodeConfigFromURL } from '@/lib/template';
+
+// Storage key for custom presets
+const CUSTOM_PRESETS_KEY = 'medai_custom_presets_v1';
+
+// Load custom presets from localStorage
+function loadCustomPresets(): TabPreset[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_PRESETS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore errors
+  }
+  return [];
+}
+
+// Get all presets (built-in + custom)
+function getAllPresets(): TabPreset[] {
+  return [...TAB_PRESETS, ...loadCustomPresets()];
+}
 
 // ============================================================================
 // Hook
@@ -67,7 +95,9 @@ export function useConfig() {
   
   // Switch tab and update categories/keywords
   const switchTab = useCallback((tabId: string) => {
-    const preset = TAB_PRESETS.find(t => t.id === tabId);
+    // Get all presets including custom ones
+    const allPresets = getAllPresets();
+    const preset = allPresets.find(t => t.id === tabId);
     if (!preset) return;
     
     setConfig(prev => ({
