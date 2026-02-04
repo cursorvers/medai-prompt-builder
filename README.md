@@ -1,10 +1,10 @@
-# 医療AI 国内ガイドライン探索 プロンプトビルダー
+# GuideScope - 医療AI 国内ガイドライン探索
 
 医療AI関連の国内ガイドラインを一次資料から探索するためのプロンプトを生成するWebアプリです。
 
 ## デモ
 
-**https://cursorvers.github.io/medai-prompt-builder/**
+**https://cursorvers.github.io/guidescope/**
 
 ## 特徴
 
@@ -16,7 +16,7 @@
 ## 使い方
 
 1. **目的プリセットを選択**: 医療機器開発寄り / 臨床運用寄り / 研究倫理寄り / 生成AI寄り
-2. **探索テーマを入力**: 例「ユビーAI問診の責任分界点の決め方」
+2. **探索テーマを入力**: 例「AI問診システムの責任分界点の決め方」
 3. **プロンプトを生成**: Gemini等のLLMに貼り付けて実行
 
 ## 出力されるプロンプトの構成
@@ -47,10 +47,14 @@ pnpm dev
 pnpm build
 ```
 
+## 免責事項
+
+本ツールは情報整理支援を目的としています。出力されるプロンプトの利用結果について、開発者は一切の責任を負いません。個別ケースについては有資格者など専門家にご相談ください。
+
 ## ライセンス
 
 MIT
 
 ## 作成者
 
-Built with [Manus](https://manus.im) + [Claude Code](https://claude.ai/code)
+Built with [Claude Code](https://claude.ai/code)

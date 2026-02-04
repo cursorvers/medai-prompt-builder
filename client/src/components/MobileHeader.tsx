@@ -11,11 +11,9 @@
 
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { AlertTriangle, Info, Settings } from 'lucide-react';
+import { AlertTriangle, Info, Settings, Shield } from 'lucide-react';
 import { DISCLAIMER_LINES, TEMPLATE_BASE_DATE } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-
-const ICON_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310419663031602391/cUYiFGjZlajscqpc.png';
 
 export function MobileHeader() {
   const [, setLocation] = useLocation();
@@ -26,18 +24,16 @@ export function MobileHeader() {
       {/* Main header row */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <img 
-            src={ICON_URL} 
-            alt="Medical AI Icon" 
-            className="w-9 h-9 rounded-lg shadow-sm"
-          />
+          <div className="w-9 h-9 rounded-lg shadow-sm bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-primary-foreground" />
+          </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold text-foreground leading-tight">
-              医療AI ガイドライン探索
+              GuideScope
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-muted-foreground">
-                プロンプトビルダー
+                医療AI ガイドライン探索
               </span>
               <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
                 {TEMPLATE_BASE_DATE}

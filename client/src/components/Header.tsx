@@ -15,8 +15,6 @@ import { AlertTriangle, Calendar, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DISCLAIMER_LINES, TEMPLATE_BASE_DATE } from '@/lib/presets';
 
-const ICON_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310419663031602391/cUYiFGjZlajscqpc.png';
-
 export function Header() {
   const [, setLocation] = useLocation();
   
@@ -28,21 +26,19 @@ export function Header() {
           {/* Logo and Title */}
           <div className="flex items-center gap-4">
             <div className="relative">
-              <img 
-                src={ICON_URL} 
-                alt="Medical AI Icon" 
-                className="w-12 h-12 rounded-xl shadow-md"
-              />
+              <div className="w-12 h-12 rounded-xl shadow-md bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary-foreground" />
+              </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-card flex items-center justify-center">
                 <Shield className="w-2.5 h-2.5 text-white" />
               </div>
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground tracking-tight">
-                医療AI 国内ガイドライン探索
+                GuideScope
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Gemini貼り付け用プロンプトビルダー
+                医療AI 国内ガイドライン探索
               </p>
             </div>
           </div>
