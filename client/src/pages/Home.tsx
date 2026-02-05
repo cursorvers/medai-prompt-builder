@@ -47,6 +47,9 @@ import {
   trackExecutePrompt,
 } from '@/lib/analytics';
 
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
+const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'url', 'password']);
+
 /**
  * Coming Soon オーバーレイコンポーネント
  */
@@ -145,6 +148,13 @@ export default function Home() {
   const [hasExecutedBefore, setHasExecutedBefore] = useState(() => {
     return localStorage.getItem('medai_has_executed') === 'true';
   });
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+  });
   const isExecuteDisabled = !config.query.trim();
 
   // 初回実行フラグをlocalStorageに保存
@@ -153,6 +163,65 @@ export default function Home() {
       localStorage.setItem('medai_has_executed', 'true');
     }
   }, [hasExecutedBefore]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+
+    updateIsMobile();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', updateIsMobile);
+    } else {
+      mediaQuery.addListener(updateIsMobile);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', updateIsMobile);
+      } else {
+        mediaQuery.removeListener(updateIsMobile);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsInputFocused(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || !isMobile) {
+      return;
+    }
+
+    const updateFocusState = () => {
+      const active = document.activeElement as HTMLElement | null;
+      const isEditable =
+        !!active &&
+        (active.tagName === 'TEXTAREA' ||
+          active.isContentEditable ||
+          (active.tagName === 'INPUT' &&
+            TEXT_INPUT_TYPES.has((active as HTMLInputElement).type)));
+      setIsInputFocused(isEditable);
+    };
+
+    const handleFocus = () => updateFocusState();
+
+    document.addEventListener('focusin', handleFocus);
+    document.addEventListener('focusout', handleFocus);
+    updateFocusState();
+
+    return () => {
+      document.removeEventListener('focusin', handleFocus);
+      document.removeEventListener('focusout', handleFocus);
+    };
+  }, [isMobile]);
 
   // 全プリセット
   const allPresets = useMemo(() => TAB_PRESETS, []);
@@ -903,7 +972,12 @@ export default function Home() {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-background/95 backdrop-blur border-t border-border pb-safe">
+      <div
+        className={cn(
+          'fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-background/95 backdrop-blur border-t border-border pb-safe',
+          isMobile && isInputFocused && 'hidden'
+        )}
+      >
         <div className="container py-3">
           <ExecuteButtonBar onExecute={handleExecute} disabled={isExecuteDisabled} />
         </div>
