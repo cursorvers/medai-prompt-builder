@@ -3,9 +3,11 @@
 .pnpm-store/
 
 # Build outputs
-dist/
 build/
 *.dist
+dist/
+# Package builds (include for GitHub install)
+!packages/*/dist/
 
 # Environment variables
 .env
