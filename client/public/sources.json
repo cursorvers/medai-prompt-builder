@@ -1,0 +1,88 @@
+{
+  "$schema": "./sources.schema.json",
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-05",
+  "nextReviewDate": "2026-05-05",
+  "maintainer": "Cursorvers Inc.",
+  "sources": [
+    {
+      "id": "pmda-samd",
+      "name": "PMDA プログラム医療機器（SaMD）",
+      "url": "https://www.pmda.go.jp/review-services/drug-reviews/about-reviews/devices/0048.html",
+      "domain": "pmda.go.jp",
+      "category": "regulatory",
+      "description": "SaMD（Software as a Medical Device）の承認・認証に関する情報",
+      "tags": ["SaMD", "医療機器", "承認", "認証"]
+    },
+    {
+      "id": "pmda-samd-list",
+      "name": "PMDA プログラム医療機器 承認等情報一覧",
+      "url": "https://www.pmda.go.jp/review-services/drug-reviews/about-reviews/devices/0052.html",
+      "domain": "pmda.go.jp",
+      "category": "regulatory",
+      "description": "承認・認証されたプログラム医療機器の一覧",
+      "tags": ["SaMD", "承認情報", "一覧"]
+    },
+    {
+      "id": "mhlw-ai-guideline",
+      "name": "厚労省 医療分野におけるAI利活用ガイドライン",
+      "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000210635.html",
+      "domain": "mhlw.go.jp",
+      "category": "guideline",
+      "description": "医療AIの開発・利活用に関するガイドライン",
+      "tags": ["AI", "ガイドライン", "開発", "利活用"]
+    },
+    {
+      "id": "mhlw-digital-data",
+      "name": "厚労省 医療デジタルデータ利活用ガイドライン",
+      "url": "https://www.mhlw.go.jp/content/001310044.pdf",
+      "domain": "mhlw.go.jp",
+      "category": "guideline",
+      "description": "医療デジタルデータのAI研究開発等への利活用に係るガイドライン",
+      "tags": ["データ利活用", "研究開発", "AI"]
+    },
+    {
+      "id": "meti-ai-governance",
+      "name": "経産省 AI事業者ガイドライン",
+      "url": "https://www.meti.go.jp/policy/it_policy/ai_governance/index.html",
+      "domain": "meti.go.jp",
+      "category": "guideline",
+      "description": "AI事業者向けガバナンスガイドライン",
+      "tags": ["AIガバナンス", "事業者", "ガイドライン"]
+    },
+    {
+      "id": "pmda-ai-subcommittee",
+      "name": "PMDA AI活用専門部会",
+      "url": "https://www.pmda.go.jp/rs-std-jp/subcommittees/0024.html",
+      "domain": "pmda.go.jp",
+      "category": "regulatory",
+      "description": "AIを活用したプログラム医療機器に関する専門部会",
+      "tags": ["AI", "専門部会", "プログラム医療機器"]
+    },
+    {
+      "id": "egov-law",
+      "name": "e-Gov法令検索",
+      "url": "https://laws.e-gov.go.jp/",
+      "domain": "e-gov.go.jp",
+      "category": "legal",
+      "description": "日本の法令を横断検索",
+      "tags": ["法令", "検索", "薬機法"]
+    },
+    {
+      "id": "mhlw-ethics",
+      "name": "厚労省 研究倫理指針",
+      "url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/hokabunya/kenkyujigyou/i-kenkyu/index.html",
+      "domain": "mhlw.go.jp",
+      "category": "ethics",
+      "description": "人を対象とする生命科学・医学系研究に関する倫理指針",
+      "tags": ["研究倫理", "指針", "生命科学"]
+    }
+  ],
+  "priorityDomains": [
+    "pmda.go.jp",
+    "mhlw.go.jp",
+    "meti.go.jp",
+    "e-gov.go.jp",
+    "nibiohn.go.jp"
+  ]
+}

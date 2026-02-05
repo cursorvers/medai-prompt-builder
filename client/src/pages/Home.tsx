@@ -36,6 +36,8 @@ import {
   Flag,
   Code,
   Terminal,
+  ShieldAlert,
+  FileJson,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +55,8 @@ import {
   trackContactClick,
   trackOutdatedReportClick,
 } from '@/lib/analytics';
+import { detectPrivacyIssues, getPrivacyWarningMessage } from '@/lib/privacy';
+import { useAuditLog } from '@/hooks/useAuditLog';
 
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'url', 'password']);
@@ -141,6 +145,7 @@ export default function Home() {
   } = useConfig();
 
   const { isMinimalMode } = useMinimalMode();
+  const { addEntry: addAuditEntry, downloadJSON: downloadAuditLog, entryCount: auditEntryCount } = useAuditLog();
 
   const [showUsageGuide, setShowUsageGuide] = useState(false);
   const [sectionsOpen, setSectionsOpen] = useState({
@@ -164,6 +169,13 @@ export default function Home() {
     return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   });
   const isExecuteDisabled = !config.query.trim();
+
+  // プライバシー警告の検出
+  const privacyWarnings = useMemo(() => {
+    return detectPrivacyIssues(config.query);
+  }, [config.query]);
+
+  const hasPrivacyWarning = privacyWarnings.length > 0;
 
   // 初回実行フラグをlocalStorageに保存
   useEffect(() => {
@@ -307,6 +319,24 @@ export default function Home() {
       return;
     }
 
+    // プライバシー警告がある場合は確認
+    if (hasPrivacyWarning) {
+      const warningMsg = getPrivacyWarningMessage(privacyWarnings);
+      toast.warning(warningMsg, {
+        duration: 5000,
+        description: '検索クエリに機微情報が含まれないか確認してください',
+      });
+    }
+
+    // 監査ログに記録
+    addAuditEntry({
+      preset: config.activeTab,
+      presetName: currentPreset.name,
+      theme: config.query,
+      difficulty: config.difficultyLevel,
+      searchQueries,
+    });
+
     // アナリティクス記録
     trackExecutePrompt(config.activeTab, config.customKeywords.length > 0);
 
@@ -326,7 +356,7 @@ export default function Home() {
       setShowIntroModal(true);
       setHasExecutedBefore(true);
     }
-  }, [config.query, config.activeTab, config.customKeywords, hasExecutedBefore]);
+  }, [config.query, config.activeTab, config.customKeywords, config.difficultyLevel, hasExecutedBefore, hasPrivacyWarning, privacyWarnings, currentPreset, searchQueries, addAuditEntry]);
 
   // JSON エクスポート
   const handleExportJSON = () => {
@@ -444,6 +474,29 @@ export default function Home() {
             <span className="text-xs text-muted-foreground hidden sm:inline">
               {config.dateToday}
             </span>
+
+            {/* 監査ログダウンロード */}
+            {auditEntryCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={downloadAuditLog}
+                    className="relative"
+                  >
+                    <FileJson className="w-4 h-4" />
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                      {auditEntryCount > 99 ? '99+' : auditEntryCount}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>監査ログをダウンロード（{auditEntryCount}件）</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             <Link href="/settings" onClick={handleSettingsClick}>
               <Button
                 variant="ghost"
@@ -542,6 +595,19 @@ export default function Home() {
                 onChange={(e) => updateField('query', e.target.value)}
                 placeholder="例: 医療AIの臨床導入における安全管理"
               />
+
+              {/* プライバシー警告 */}
+              {hasPrivacyWarning && (
+                <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                  <div className="text-amber-700 dark:text-amber-400">
+                    <p className="font-medium mb-0.5">機微情報の可能性を検出</p>
+                    <p className="text-amber-600 dark:text-amber-500">
+                      {getPrivacyWarningMessage(privacyWarnings)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 1.5. 難易度選択（Phase 5） */}
