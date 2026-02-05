@@ -33,6 +33,56 @@
 - **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS 4 + shadcn/ui
 - **Hosting**: GitHub Pages
+- **Packages**: Monorepo (pnpm workspaces)
+
+## パッケージ構成
+
+```
+guidescope/
+├── client/           # Web UI (GitHub Pages)
+├── packages/
+│   ├── core/         # @cursorvers/guidescope - コアライブラリ
+│   └── mcp/          # @cursorvers/guidescope-mcp - MCP サーバー
+```
+
+### npm パッケージ
+
+```bash
+npm install @cursorvers/guidescope
+```
+
+```typescript
+import { generate, generatePrompt, generateSearchQueries } from '@cursorvers/guidescope';
+
+// プロンプトと検索クエリを生成
+const result = generate({
+  query: '医療AIの臨床導入における安全管理',
+  preset: 'medical-device',      // optional
+  difficulty: 'professional',    // optional
+});
+
+console.log(result.prompt);        // 生成されたプロンプト
+console.log(result.searchQueries); // 検索クエリ一覧
+```
+
+### MCP サーバー（Claude Desktop / Cursor）
+
+```json
+{
+  "mcpServers": {
+    "guidescope": {
+      "command": "npx",
+      "args": ["@cursorvers/guidescope-mcp"]
+    }
+  }
+}
+```
+
+利用可能なツール:
+- `generate` - プロンプトと検索クエリを生成
+- `generatePrompt` - プロンプトのみ生成
+- `generateSearchQueries` - 検索クエリのみ生成
+- `listPresets` - 利用可能なプリセット一覧
 
 ## ローカル開発
 
@@ -40,11 +90,14 @@
 # 依存関係インストール
 pnpm install
 
-# 開発サーバー起動
+# 開発サーバー起動（Web UI）
 pnpm dev
 
-# ビルド
+# Web UI ビルド
 pnpm build
+
+# パッケージビルド（npm + MCP）
+pnpm build:packages
 ```
 
 ## 免責事項

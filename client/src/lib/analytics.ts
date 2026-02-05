@@ -83,6 +83,24 @@ export function trackExecutePrompt(presetId: string, hasCustomKeywords: boolean)
 }
 
 /**
+ * お問い合わせクリックイベント
+ */
+export function trackContactClick() {
+  trackEvent('contact_click', {
+    source: 'footer',
+  });
+}
+
+/**
+ * 情報が古い報告クリックイベント
+ */
+export function trackOutdatedReportClick() {
+  trackEvent('outdated_report_click', {
+    source: 'footer',
+  });
+}
+
+/**
  * GA4の初期化（index.htmlで読み込むスクリプト用）
  */
 export function initGA4() {

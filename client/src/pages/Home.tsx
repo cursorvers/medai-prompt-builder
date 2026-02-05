@@ -32,6 +32,8 @@ import {
   Star,
   Zap,
   ExternalLink,
+  MessageCircle,
+  Flag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +48,8 @@ import {
   trackComingSoonClick,
   trackSettingsAttempt,
   trackExecutePrompt,
+  trackContactClick,
+  trackOutdatedReportClick,
 } from '@/lib/analytics';
 
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
@@ -1019,8 +1023,33 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border mt-8 py-4 mb-24 lg:mb-0">
-        <div className="container text-center text-xs text-muted-foreground">
-          本アプリは情報整理支援ツールです。個別ケースは専門家にご相談ください。
+        <div className="container">
+          <p className="text-center text-xs text-muted-foreground mb-3">
+            本アプリは情報整理支援ツールです。個別ケースは専門家にご相談ください。
+          </p>
+          <div className="flex items-center justify-center gap-4 text-xs">
+            <a
+              href="https://script.google.com/macros/s/AKfycbwDP0d67qtifyms2h67LawjNWJi_Lh44faPC7Z4axfS_Gdmjzcd50rcl_kmTYBTysKirQ/exec"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={trackContactClick}
+            >
+              <MessageCircle className="w-3 h-3" />
+              お問い合わせ
+            </a>
+            <span className="text-border">|</span>
+            <a
+              href="https://script.google.com/macros/s/AKfycbwDP0d67qtifyms2h67LawjNWJi_Lh44faPC7Z4axfS_Gdmjzcd50rcl_kmTYBTysKirQ/exec?type=outdated"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={trackOutdatedReportClick}
+            >
+              <Flag className="w-3 h-3" />
+              情報が古い？報告する
+            </a>
+          </div>
         </div>
       </footer>
 

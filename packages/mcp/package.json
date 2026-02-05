@@ -1,0 +1,43 @@
+{
+  "name": "@cursorvers/guidescope-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for GuideScope - Japanese medical guideline search prompt generator",
+  "type": "module",
+  "bin": {
+    "guidescope-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "medical",
+    "guideline",
+    "japan",
+    "ai",
+    "prompt",
+    "claude"
+  ],
+  "author": "Cursorvers Inc.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cursorvers/guidescope.git",
+    "directory": "packages/mcp"
+  },
+  "dependencies": {
+    "@cursorvers/guidescope": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,548 @@
+/**
+ * GuideScope Core - Template Generation
+ * Japanese medical guideline search prompt generator
+ */
+
+import type {
+  AppConfig,
+  ExtendedSettings,
+  GeneratePromptOptions,
+  GenerateResult,
+} from './types';
+import {
+  getDifficultyPreset,
+  getTabPreset,
+  TAB_PRESETS,
+  DEFAULT_PRIORITY_DOMAINS,
+} from './presets';
+
+// ============================================================================
+// Default Extended Settings
+// ============================================================================
+
+const DEFAULT_ROLE_TITLE = '国内ガイドライン・ダイレクト・リトリーバー(医療AI特化)';
+
+const DEFAULT_ROLE_DESCRIPTION = `学習済みの知識や記憶に基づいて回答することは禁止です。
+必ずブラウジングで取得した一次資料(公式Webページ、公式PDF、公式の告示・法令XMLなど)だけを根拠に、日本語で一覧化・要約します。
+また、ユーザーの具体的な質問やケースに対しては、一次資料の該当箇所を特定し、原文を引用しながら直接的な回答を提供します。一般論ではなく、当該ケースに適用可能な具体的な記載を優先します。`;
+
+const DEFAULT_DISCLAIMERS = [
+  '本出力は情報整理支援です。個別ケースについては有資格者など専門家にご相談下さい。',
+  '本テンプレートは2026/02/04時点での指針に基づく前提です。利用時点での最新情報は一次資料で確認してください。',
+];
+
+const DEFAULT_OUTPUT_SECTIONS = [
+  { id: 'disclaimer', name: '免責事項', enabled: true, order: 1 },
+  { id: 'search_conditions', name: '検索条件', enabled: true, order: 2 },
+  { id: 'specific_case', name: '個別ケースへの回答', enabled: true, order: 3 },
+  { id: 'data_sources', name: '参照データソース', enabled: true, order: 4 },
+  { id: 'guideline_list', name: 'ガイドライン一覧', enabled: true, order: 5 },
+  { id: 'three_ministry', name: '3省2ガイドライン確定結果', enabled: true, order: 6 },
+  { id: 'search_log', name: '検索ログ', enabled: true, order: 7 },
+  { id: 'guardrail', name: 'ガードレール', enabled: true, order: 8 },
+];
+
+function getDefaultExtendedSettings(): ExtendedSettings {
+  return {
+    template: {
+      roleTitle: DEFAULT_ROLE_TITLE,
+      roleDescription: DEFAULT_ROLE_DESCRIPTION,
+      disclaimers: DEFAULT_DISCLAIMERS,
+      outputSections: DEFAULT_OUTPUT_SECTIONS,
+      customInstructions: '',
+    },
+    search: {
+      useSiteOperator: true,
+      useFiletypeOperator: true,
+      filetypes: ['pdf'],
+      priorityRule: 'revised_date',
+      excludedDomains: [],
+      maxResults: 20,
+      recursiveDepth: 2,
+    },
+    output: {
+      languageMode: 'japanese_only',
+      includeEnglishTerms: true,
+      detailLevel: 'standard',
+      eGovCrossReference: false,
+      includeLawExcerpts: true,
+      outputFormat: 'markdown',
+      includeSearchLog: true,
+    },
+  };
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function formatList(items: string[], prefix: string = '・'): string {
+  if (items.length === 0) return `${prefix}(なし)`;
+  return items.map(item => `${prefix}${item}`).join('\n');
+}
+
+function getTodayDate(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+// ============================================================================
+// Config Creation
+// ============================================================================
+
+export function createConfig(options: GeneratePromptOptions): AppConfig {
+  const preset = getTabPreset(options.preset || 'medical-device');
+  const date = options.date || getTodayDate();
+
+  return {
+    dateToday: date,
+    query: options.query,
+    scope: options.scope || ['医療AI'],
+    audiences: options.audiences || ['医療機関', '開発企業'],
+    difficultyLevel: options.difficulty || 'standard',
+
+    threeMinistryGuidelines: true,
+    officialDomainPriority: true,
+    siteOperator: true,
+    latestVersionPriority: true,
+    pdfDirectLink: true,
+    includeSearchLog: true,
+    eGovCrossReference: false,
+    proofMode: false,
+
+    categories: preset.categories.map(name => ({ name, enabled: true })),
+    keywordChips: preset.keywordChips.map(name => ({ name, enabled: true })),
+    customKeywords: options.customKeywords || [],
+    excludeKeywords: [],
+
+    priorityDomains: options.priorityDomains || [...DEFAULT_PRIORITY_DOMAINS],
+    activeTab: options.preset || 'medical-device',
+  };
+}
+
+// ============================================================================
+// Template Building
+// ============================================================================
+
+function buildBaseTemplate(extSettings: ExtendedSettings): string {
+  const { template, output, search } = extSettings;
+
+  // Build Role section
+  const roleIntro = 'あなたは、内部知識を一切持たない「' + template.roleTitle + '」です。';
+  const cleanedDescription = template.roleDescription
+    .replace(/あなたは、内部知識を一切持たない「[^」]+」です。\s*/g, '')
+    .trim();
+
+  const roleSection = '# Role\n' + roleIntro + '\n' + cleanedDescription;
+
+  // Build disclaimers section
+  const disclaimerSection = `# 注意
+${template.disclaimers.map(d => `- ${d}`).join('\n')}`;
+
+  // Build proof section (conditionally included)
+  const proofSectionBegin = `PROOF_SECTION_BEGIN
+# 実証
+以下、実用に耐えうるか実証せよ。プロンプトの指示に従い一次資料を取得し、最後に実証結果として達成事項と制約事項を述べよ。
+PROOF_SECTION_END`;
+
+  // Build model definition
+  const modelDefinition = `# Model Definition
+
+## Variables
+$Date_today$: システムの現在日付(YYYY-MM-DD)
+$Query$: ユーザーの探索テーマ
+$SpecificQuestion$: ユーザーの具体的な質問やケース
+$Scope$: 対象範囲
+$Must_keywords$: 必須検索語
+$Optional_keywords$: 追加検索語
+$Candidate_docs$: 候補文書リスト
+$Doc_title$: 文書タイトル
+$Issuer$: 発行主体
+$Published_date$: 公開日
+$Revised_date$: 改定日
+$Version$: 版数
+$Doc_url$: 公式URL
+$Doc_type$: 文書種別
+$Fetched_text$: 取得した本文テキスト
+$RelevantSection$: 関連する本文箇所
+
+$Law_name$: 法令名
+$Law_ID$: e-Gov法令ID
+$U_xml$: e-Gov API URL
+$U_web$: e-Gov Web URL
+$Law_xml$: 取得したXML`;
+
+  // Build rules section
+  let rulesSection = `## Rules (Strict Logic)
+1. ゼロ知識
+   ・一次資料を取得する前に、内容を断定しない
+   ・一次資料に書かれていないことは「不明」とする
+   ・推測で補完しない
+
+2. 公式優先
+   ・候補発見のために一般サイトを使ってよいが、内容の根拠は必ず公式一次資料に限る
+   ・公式一次資料に到達できない場合は「公式資料未確認」と明記し、要約はしない
+   ・優先ドメイン:
+[[PRIORITY_DOMAINS_LIST]]`;
+
+  if (search.excludedDomains.length > 0) {
+    rulesSection += `
+   ・除外ドメイン:
+${search.excludedDomains.map(d => `     - ${d}`).join('\n')}`;
+  }
+
+  rulesSection += `
+
+3. 個別ケースへの対応
+   ・$SpecificQuestion$ が与えられた場合、一般論ではなく当該ケースに直接適用可能な条文・記載を特定する
+   ・該当箇所は「○○ガイドライン 第X章 X.X節 pXX」のように具体的に引用する
+
+4. 版管理
+   ・同名文書が複数版ある場合、${search.priorityRule === 'revised_date' ? '改定日が最も新しい最新版' : search.priorityRule === 'published_date' ? '公開日が最も新しい版' : '関連度が最も高い版'}を特定して採用する
+
+5. 出力リンク形式
+   ・出力するURLは必ず Markdown の [表示ラベル](URL) 形式で提示する
+
+6. 再帰的参照
+   ・一次資料内に別の指針、通知、Q&A等が参照されている場合、リンクを辿って同様に取得する${search.recursiveDepth > 0 ? `（最大${search.recursiveDepth}階層まで）` : ''}
+
+7. 回答の具体性
+   ・一般論や抽象的な説明を避け、ユーザーの質問に直接答える
+   ・引用時は「○○ガイドライン 第X章 X.X節 pXX」のように出典を明記する`;
+
+  // e-Gov section
+  const eGovSection = `EGOV_SECTION_BEGIN
+8. e-Gov法令取得
+   ・文書内に法令が参照されている場合、e-Govで法令IDを特定し、APIで条文を取得する${output.includeLawExcerpts ? '\n   ・該当条文の短い抜粋を含める' : ''}
+
+   API用: https://laws.e-gov.go.jp/api/2/law_data/{$Law_ID}?applicable_date={$Date_today}
+   Web用: https://laws.e-gov.go.jp/law/{$Law_ID}
+EGOV_SECTION_END`;
+
+  // Build task section
+  const taskSection = `# Task
+
+## Phase 1: 探索計画の確定
+1. ユーザー入力から $Query と $Scope を整理する
+2. $Must_keywords を確定する（3省2ガイドラインを必ず含める）
+3. $Optional_keywords を生成する
+4. ${search.useSiteOperator ? '優先ドメインに対して site: 指定も併用する' : '優先ドメインを参考に検索する'}
+
+## Phase 2: 候補文書の収集と一次資料取得
+1. 検索で見つかった候補を $Candidate_docs に記録する（最大${search.maxResults}件）
+2. 各候補について $Doc_url を開き、本文を取得する
+3. PDFの場合は本文を読み取り、関係する箇所を特定する
+
+## Phase 3: 必須テーマの確定
+1. 「3省2ガイドライン」を構成する文書を確定する
+2. 医療AIに関する他の国内ガイドラインも、最新版と根拠URLを確定する
+
+## Phase 4: 法令クロスリファレンス(必要時)
+1. 各文書で参照されている主要な法令名を抽出する
+2. e-Govで法令IDを特定し、該当条文を取得する
+
+## Phase 5: 個別ケース分析
+1. $Query$ を分解し、直接適用可能な記載を抽出する
+2. 該当箇所は原文を引用する`;
+
+  // Build output format section
+  const enabledSections = template.outputSections
+    .filter(s => s.enabled)
+    .sort((a, b) => a.order - b.order);
+
+  let outputFormatSection = `# Output Format\n`;
+
+  for (const section of enabledSections) {
+    switch (section.id) {
+      case 'disclaimer':
+        outputFormatSection += `
+■ 免責
+・本出力は情報整理支援です。個別ケースについては専門家にご相談下さい。
+・本出力は[[DATE_TODAY]]時点の取得結果であり、更新があり得るため一次資料で確認すること。
+`;
+        break;
+      case 'search_conditions':
+        outputFormatSection += `
+■ 検索条件
+・日付: [[DATE_TODAY]]
+・テーマ: [[QUERY]]
+・範囲: [[SCOPE]]
+`;
+        break;
+      case 'data_sources':
+        outputFormatSection += `
+■ 参照データソース
+・各文書について [公式ページ](URL) と [PDF](URL) を列挙
+・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)
+`;
+        break;
+      case 'guideline_list':
+        outputFormatSection += `
+■ ガイドライン一覧
+カテゴリ別に、各文書を整理する
+${output.detailLevel === 'concise' ? `・タイトル、発行主体、版数、公式URL` : output.detailLevel === 'detailed' ? `・タイトル、発行主体、文書種別、版数、対象者、医療AIとの関係、関連法令、実務上の重要ポイント` : `・タイトル、発行主体、文書種別、版数、対象者、医療AIとの関係、関連法令`}
+
+カテゴリ例
+[[CATEGORIES_LIST]]
+`;
+        break;
+      case 'three_ministry':
+        outputFormatSection += `
+■ 3省2ガイドラインの確定結果
+・構成文書の対応関係
+・対象者の違い
+・実務上の重要ポイント
+`;
+        break;
+      case 'specific_case':
+        outputFormatSection += `
+■ 個別ケースへの回答
+【直接適用可能な規制・ガイドライン】
+・根拠文書、該当箇所、原文抜粋、要約
+
+【複数解釈がある場合】
+・選択肢と根拠条文
+
+【明示的記載がない場合】
+・類似規定の参照と一般原則からの推論
+`;
+        break;
+      case 'search_log':
+        if (output.includeSearchLog) {
+          outputFormatSection += `
+■ 検索ログ
+・実際に使った検索語
+・参照した公式ドメイン一覧
+`;
+        }
+        break;
+      case 'guardrail':
+        outputFormatSection += `
+# Guardrail
+・一次資料を開けない場合は、その旨を明記して推測しない
+・出力リンクは必ず [表示ラベル](URL) 形式に統一する
+`;
+        break;
+    }
+  }
+
+  // Build input section
+  const inputSection = `# Input
+Date_today: [[DATE_TODAY]]
+Query: [[QUERY]]
+SpecificQuestion: [[SPECIFIC_QUESTION]]
+Scope: [[SCOPE]]
+
+Audiences:
+[[AUDIENCES_LIST]]
+
+PriorityDomains:
+[[PRIORITY_DOMAINS_LIST]]
+
+Must_keywords:
+[[MUST_KEYWORDS_LIST]]
+
+Optional_keywords:
+[[OPTIONAL_KEYWORDS_LIST]]
+
+Exclude_keywords:
+[[EXCLUDE_KEYWORDS_LIST]]
+
+Instruction:
+次の条件で検索と整理を実行し、SpecificQuestion に対する具体的な回答を提供せよ。`;
+
+  // Build proof result section
+  const proofResultSection = `PROOF_SECTION_BEGIN
+# 実証結果
+本プロンプトが実用に耐えうるかを自己点検し、達成事項と制約事項を述べよ。
+PROOF_SECTION_END`;
+
+  // Custom instructions
+  const customInstructionsSection = template.customInstructions.trim()
+    ? `\n# カスタム指示\n${template.customInstructions}\n`
+    : '';
+
+  return [
+    roleSection,
+    disclaimerSection,
+    proofSectionBegin,
+    modelDefinition,
+    rulesSection,
+    eGovSection,
+    taskSection,
+    outputFormatSection,
+    inputSection,
+    customInstructionsSection,
+    proofResultSection,
+  ].join('\n\n');
+}
+
+// ============================================================================
+// Main Generation Functions
+// ============================================================================
+
+/**
+ * Generate a prompt from AppConfig
+ */
+export function generatePromptFromConfig(config: AppConfig, extSettings?: ExtendedSettings): string {
+  const settings = extSettings || getDefaultExtendedSettings();
+
+  // Get difficulty preset settings
+  const difficultyPreset = getDifficultyPreset(config.difficultyLevel);
+  const presetSettings = difficultyPreset.settings;
+
+  // Apply difficulty preset to settings
+  const adjustedSettings: ExtendedSettings = {
+    ...settings,
+    output: {
+      ...settings.output,
+      detailLevel: presetSettings.detailLevel,
+      eGovCrossReference: presetSettings.eGovCrossReference || config.eGovCrossReference,
+      includeLawExcerpts: presetSettings.includeLawExcerpts,
+    },
+    search: {
+      ...settings.search,
+      recursiveDepth: presetSettings.recursiveDepth,
+      maxResults: presetSettings.maxResults,
+    },
+  };
+
+  const effectiveConfig = {
+    ...config,
+    proofMode: presetSettings.proofMode || config.proofMode,
+  };
+
+  let prompt = buildBaseTemplate(adjustedSettings);
+
+  // Replace placeholders
+  prompt = prompt.replace(/\[\[DATE_TODAY\]\]/g, config.dateToday);
+  prompt = prompt.replace(/\[\[QUERY\]\]/g, config.query || '(未入力)');
+
+  const specificQuestion = config.query
+    ? `「${config.query}」について、適用可能な具体的な条文・記載を特定し、原文を引用して回答せよ`
+    : '(未入力)';
+  prompt = prompt.replace(/\[\[SPECIFIC_QUESTION\]\]/g, specificQuestion);
+
+  prompt = prompt.replace(/\[\[SCOPE\]\]/g, config.scope.join('、') || '(未指定)');
+  prompt = prompt.replace('[[AUDIENCES_LIST]]', formatList(config.audiences));
+  prompt = prompt.replace(/\[\[PRIORITY_DOMAINS_LIST\]\]/g, formatList(config.priorityDomains));
+
+  const mustKeywords = ['3省2ガイドライン'];
+  prompt = prompt.replace('[[MUST_KEYWORDS_LIST]]', formatList(mustKeywords));
+
+  const optionalKeywords = [
+    ...config.keywordChips.filter(k => k.enabled).map(k => k.name),
+    ...config.customKeywords.filter(k => k.trim()),
+  ];
+  prompt = prompt.replace(/\[\[OPTIONAL_KEYWORDS_LIST\]\]/g, formatList(optionalKeywords));
+  prompt = prompt.replace('[[EXCLUDE_KEYWORDS_LIST]]', formatList(config.excludeKeywords.filter(k => k.trim())));
+
+  const enabledCategories = config.categories.filter(c => c.enabled).map(c => c.name);
+  prompt = prompt.replace('[[CATEGORIES_LIST]]', formatList(enabledCategories));
+
+  // Handle e-Gov section
+  if (!adjustedSettings.output.eGovCrossReference) {
+    prompt = prompt.replace(/EGOV_SECTION_BEGIN[\s\S]*?EGOV_SECTION_END/g, '');
+  } else {
+    prompt = prompt.replace(/EGOV_SECTION_BEGIN\n?/g, '');
+    prompt = prompt.replace(/EGOV_SECTION_END\n?/g, '');
+  }
+
+  // Handle proof section
+  if (!effectiveConfig.proofMode) {
+    prompt = prompt.replace(/PROOF_SECTION_BEGIN[\s\S]*?PROOF_SECTION_END/g, '');
+  } else {
+    prompt = prompt.replace(/PROOF_SECTION_BEGIN\n?/g, '');
+    prompt = prompt.replace(/PROOF_SECTION_END\n?/g, '');
+  }
+
+  // Clean up
+  prompt = prompt.replace(/\n{3,}/g, '\n\n');
+
+  return prompt.trim();
+}
+
+/**
+ * Generate search queries from AppConfig
+ */
+export function generateSearchQueriesFromConfig(config: AppConfig, extSettings?: ExtendedSettings): string[] {
+  const settings = extSettings || getDefaultExtendedSettings();
+  const queries: string[] = [];
+
+  // 1. Query with 3省2ガイドライン
+  queries.push(`3省2ガイドライン ${config.query || '医療AI'} ガイドライン 最新版`);
+
+  // 2. Query with user's search theme
+  if (config.query) {
+    queries.push(`${config.query} ガイドライン 国内`);
+  }
+
+  // 3. Top 5 enabled keyword chips
+  const enabledChips = config.keywordChips.filter(k => k.enabled).slice(0, 5);
+  enabledChips.forEach(chip => {
+    queries.push(chip.name);
+  });
+
+  // 4. Site-specific queries
+  if (config.officialDomainPriority && settings.search.useSiteOperator) {
+    const topDomains = config.priorityDomains.slice(0, 3);
+    topDomains.forEach(domain => {
+      queries.push(`site:${domain} ${config.query || '医療AI'} ガイドライン`);
+    });
+  }
+
+  // 5. Filetype-specific queries
+  if (settings.search.useFiletypeOperator && settings.search.filetypes.length > 0) {
+    const filetypeQuery = settings.search.filetypes.map(ft => `filetype:${ft}`).join(' OR ');
+    queries.push(`${config.query || '医療AI'} ガイドライン (${filetypeQuery})`);
+  }
+
+  return queries.slice(0, Math.min(10, settings.search.maxResults));
+}
+
+// ============================================================================
+// Simplified API
+// ============================================================================
+
+/**
+ * Generate prompt and search queries from simple options
+ *
+ * @example
+ * ```typescript
+ * const result = generate({
+ *   query: '医療AIの臨床導入における安全管理',
+ *   preset: 'clinical-operation',
+ *   difficulty: 'professional',
+ * });
+ *
+ * console.log(result.prompt);
+ * console.log(result.searchQueries);
+ * ```
+ */
+export function generate(options: GeneratePromptOptions): GenerateResult {
+  const config = createConfig(options);
+  const prompt = generatePromptFromConfig(config);
+  const searchQueries = generateSearchQueriesFromConfig(config);
+
+  return {
+    prompt,
+    searchQueries,
+    config,
+  };
+}
+
+/**
+ * Generate prompt only
+ */
+export function generatePrompt(options: GeneratePromptOptions): string {
+  const config = createConfig(options);
+  return generatePromptFromConfig(config);
+}
+
+/**
+ * Generate search queries only
+ */
+export function generateSearchQueries(options: GeneratePromptOptions): string[] {
+  const config = createConfig(options);
+  return generateSearchQueriesFromConfig(config);
+}
