@@ -57,6 +57,7 @@ import {
 } from '@/lib/analytics';
 import { detectPrivacyIssues, getPrivacyWarningMessage } from '@/lib/privacy';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { useReturnBanner } from '@/hooks/useReturnBanner';
 
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'url', 'password']);
@@ -146,6 +147,7 @@ export default function Home() {
 
   const { isMinimalMode } = useMinimalMode();
   const { addEntry: addAuditEntry, downloadJSON: downloadAuditLog, entryCount: auditEntryCount } = useAuditLog();
+  const { showBanner: showReturnBanner, lastSearchQuery, dismissBanner, markSearchStarted } = useReturnBanner();
 
   const [showUsageGuide, setShowUsageGuide] = useState(false);
   const [sectionsOpen, setSectionsOpen] = useState({
@@ -512,6 +514,29 @@ export default function Home() {
       </header>
 
       <main className="container py-4 pb-24 lg:pb-4">
+        {/* リターンバナー（検索から戻ってきた時） */}
+        {showReturnBanner && (
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Check className="w-4 h-4 text-green-600 dark:text-green-500" />
+              <span className="text-green-700 dark:text-green-400">
+                検索から戻りました。
+                {lastSearchQuery && (
+                  <span className="text-green-600 dark:text-green-500 ml-1">
+                    「{lastSearchQuery.slice(0, 30)}{lastSearchQuery.length > 30 ? '...' : ''}」
+                  </span>
+                )}
+              </span>
+            </div>
+            <button
+              onClick={dismissBanner}
+              className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded transition-colors"
+            >
+              <X className="w-4 h-4 text-green-600 dark:text-green-500" />
+            </button>
+          </div>
+        )}
+
         {/* 使い方ガイド */}
         {showUsageGuide && (
           <div className="mb-4 p-4 bg-primary/5 border border-primary/20 rounded-lg relative">
@@ -1131,6 +1156,7 @@ console.log(result.prompt);`}</pre>
                           href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => markSearchStarted(query)}
                           className="flex-1 break-all text-primary hover:underline cursor-pointer flex items-start gap-1"
                         >
                           <code className="flex-1">{query}</code>

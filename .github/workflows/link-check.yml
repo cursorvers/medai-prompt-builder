@@ -1,0 +1,131 @@
+# Weekly Link Check for sources.json
+# Validates that all official guideline URLs are still accessible
+
+name: Weekly Link Check
+
+on:
+  schedule:
+    # Every Monday at 9:00 JST (0:00 UTC)
+    - cron: '0 0 * * 1'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check source links
+        id: check
+        run: |
+          echo "Checking links in sources.json..."
+
+          # Extract URLs from sources.json
+          URLS=$(cat client/public/sources.json | jq -r '.sources[].url')
+
+          FAILED=""
+          SUCCESS_COUNT=0
+          FAIL_COUNT=0
+
+          for url in $URLS; do
+            echo "Checking: $url"
+
+            # Use curl with timeout and follow redirects
+            HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" -L --max-time 30 "$url" || echo "000")
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+              echo "  ✓ OK ($HTTP_CODE)"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "  ✗ FAILED ($HTTP_CODE)"
+              FAILED="${FAILED}\n- ${url} (HTTP ${HTTP_CODE})"
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            fi
+          done
+
+          echo ""
+          echo "Results: $SUCCESS_COUNT passed, $FAIL_COUNT failed"
+
+          if [ $FAIL_COUNT -gt 0 ]; then
+            echo "failed_urls<<EOF" >> $GITHUB_OUTPUT
+            echo -e "$FAILED" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_failures=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_failures=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "success_count=$SUCCESS_COUNT" >> $GITHUB_OUTPUT
+          echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Create issue for broken links
+        if: steps.check.outputs.has_failures == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failedUrls = `${{ steps.check.outputs.failed_urls }}`;
+            const failCount = '${{ steps.check.outputs.fail_count }}';
+
+            const issueTitle = `[Auto] ${failCount} broken link(s) detected in sources.json`;
+            const issueBody = `## Weekly Link Check Failed
+
+            The following URLs in \`client/public/sources.json\` are not accessible:
+
+            ${failedUrls}
+
+            ### Action Required
+            1. Verify if the URLs have moved or changed
+            2. Update \`sources.json\` with corrected URLs
+            3. Close this issue once fixed
+
+            ---
+            *This issue was automatically created by the weekly link check workflow.*
+            `;
+
+            // Check if similar issue already exists
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'link-check'
+            });
+
+            const existingIssue = issues.find(i => i.title.includes('broken link'));
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `### Updated Check (${new Date().toISOString().split('T')[0]})\n\n${failedUrls}`
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['link-check', 'maintenance']
+              });
+            }
+
+      - name: Summary
+        run: |
+          echo "## Link Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✓ Passed: ${{ steps.check.outputs.success_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✗ Failed: ${{ steps.check.outputs.fail_count }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check.outputs.has_failures }}" == "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Failed URLs" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.check.outputs.failed_urls }}" >> $GITHUB_STEP_SUMMARY
+          fi

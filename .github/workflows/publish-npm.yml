@@ -1,0 +1,86 @@
+# Publish packages to npm
+# Triggered on release or manual dispatch
+
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - core
+          - mcp
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm -r build
+
+      - name: Publish @cursorvers/guidescope (core)
+        if: ${{ github.event.inputs.package == 'all' || github.event.inputs.package == 'core' || github.event_name == 'release' }}
+        working-directory: packages/core
+        run: |
+          # Check if version already exists
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          NPM_VERSION=$(npm view @cursorvers/guidescope version 2>/dev/null || echo "0.0.0")
+
+          if [ "$CURRENT_VERSION" != "$NPM_VERSION" ]; then
+            echo "Publishing @cursorvers/guidescope@$CURRENT_VERSION"
+            pnpm publish --access public --no-git-checks
+          else
+            echo "Version $CURRENT_VERSION already published, skipping"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @cursorvers/guidescope-mcp
+        if: ${{ github.event.inputs.package == 'all' || github.event.inputs.package == 'mcp' || github.event_name == 'release' }}
+        working-directory: packages/mcp
+        run: |
+          # Check if version already exists
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          NPM_VERSION=$(npm view @cursorvers/guidescope-mcp version 2>/dev/null || echo "0.0.0")
+
+          if [ "$CURRENT_VERSION" != "$NPM_VERSION" ]; then
+            echo "Publishing @cursorvers/guidescope-mcp@$CURRENT_VERSION"
+            pnpm publish --access public --no-git-checks
+          else
+            echo "Version $CURRENT_VERSION already published, skipping"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## npm Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| @cursorvers/guidescope | $(node -p "require('./packages/core/package.json').version") |" >> $GITHUB_STEP_SUMMARY
+          echo "| @cursorvers/guidescope-mcp | $(node -p "require('./packages/mcp/package.json').version") |" >> $GITHUB_STEP_SUMMARY
