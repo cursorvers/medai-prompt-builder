@@ -344,6 +344,26 @@ describe('generatePrompt()', () => {
   });
 
   describe('Output Sections', () => {
+    it('should require summary to appear first and start with a conclusion line', () => {
+      const configProfessional = createTestConfig({ difficultyLevel: 'professional' });
+      const promptProfessional = generatePrompt(configProfessional, createTestSettings());
+      const idxSummaryP = promptProfessional.indexOf('■ サマリー');
+      const idxDisclaimerP = promptProfessional.indexOf('■ 免責');
+      expect(idxSummaryP).toBeGreaterThanOrEqual(0);
+      expect(idxDisclaimerP).toBeGreaterThanOrEqual(0);
+      expect(idxSummaryP).toBeLessThan(idxDisclaimerP);
+      expect(promptProfessional).toContain('結論:');
+
+      const configStandard = createTestConfig({ difficultyLevel: 'standard' });
+      const promptStandard = generatePrompt(configStandard, createTestSettings());
+      const idxSummaryS = promptStandard.indexOf('■ サマリー');
+      const idxRefsS = promptStandard.indexOf('■ 引用文献');
+      expect(idxSummaryS).toBeGreaterThanOrEqual(0);
+      expect(idxRefsS).toBeGreaterThanOrEqual(0);
+      expect(idxSummaryS).toBeLessThan(idxRefsS);
+      expect(promptStandard).toContain('結論:');
+    });
+
     it('should include enabled output sections', () => {
       const config = createTestConfig({ difficultyLevel: 'professional' });
       const settings = createTestSettings();

@@ -273,6 +273,7 @@ ${search.excludedDomains.map(d => `     - ${d}`).join('\n')}`;
 
 5. 出力リンク形式
    ・出力するURLは必ず Markdown の [表示ラベル](URL) 形式で提示する
+   ・最初の出力ブロックは必ず「■ サマリー」から開始する（免責や検索条件を先に書かない）
 
 6. 再帰的参照
    ・一次資料内に別の指針、通知、Q&A等が参照されている場合、リンクを辿って同様に取得する${search.recursiveDepth > 0 ? `（最大${search.recursiveDepth}階層まで）` : ''}
@@ -335,6 +336,9 @@ ${lawCrossRefPhase}
     .sort((a, b) => a.order - b.order);
 
   let outputFormatSection = `# Output Format\n`;
+  outputFormatSection += `
+【順序厳守】最初の出力ブロックは必ず「■ サマリー」。免責・検索条件などはサマリーの後に出力する。
+`;
   const lawSourcesLine = output.eGovCrossReference
     ? '・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)'
     : '・法令参照が必要な場合は公式一次資料(法令本文/省庁ページ等)を確認する';
@@ -342,8 +346,9 @@ ${lawCrossRefPhase}
   if (difficultyLevel === 'standard') {
     outputFormatSection += `
 ■ サマリー
-・[[QUERY]]に関する結論と重要ポイントを5〜8点で整理する
-・$SpecificQuestion$ がある場合は結論を先に明記し、根拠箇所を併記する
+結論: （1行で。違反/非違反/判断不能(要確認)のいずれかを明示）
+・[[QUERY]]について、まず結論を明記し、次に重要ポイントを3〜5点で整理する
+・判断不能(要確認)の場合は、足りない前提条件（例: 外部送信の有無、保存の有無、学習への利用、ログ保持、委託先、患者説明）を3〜6点で列挙する
 ・各ポイントに「文書名 第X章 X.X節 pXX」を付記する
 ・一次資料未確認の事項は明確に「未確認」とする
 
@@ -355,7 +360,9 @@ ${lawSourcesLine}
   } else {
     outputFormatSection += `
 ■ サマリー
-・結論と主要ポイントを3〜5点で簡潔に整理する
+結論: （1行で。違反/非違反/判断不能(要確認)のいずれかを明示）
+・結論と主要ポイントを3〜5点で簡潔に整理する（最初の1項目は結論）
+・判断が条件分岐する場合は「分岐条件（例: 外部送信/保存/学習の有無）」を短く併記する
 ・各ポイントに根拠文書名・章節・ページを併記する
 `;
   }
