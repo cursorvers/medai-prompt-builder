@@ -12,16 +12,49 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   type AppConfig,
+  type DifficultyLevel,
   type TabPreset,
   STORAGE_KEY,
   TAB_PRESETS,
   createDefaultConfig,
+  getDifficultyPreset,
   validateConfig,
   parseConfigJSON,
   type ValidationResult,
 } from '@/lib/presets';
 import { decodeConfigFromURL } from '@/lib/template';
 import { parseAppConfig } from '@/lib/schemas';
+import { loadExtendedSettings, saveExtendedSettings } from '@/lib/settings';
+
+function syncExtendedSettingsForDifficulty(level: DifficultyLevel) {
+  // Keep Settings page toggles aligned with the chosen difficulty.
+  // generatePrompt still applies its own difficulty clamping, but without this
+  // the UI can look inconsistent across pages.
+  if (typeof window === 'undefined') return;
+  try {
+    const preset = getDifficultyPreset(level).settings;
+    const current = loadExtendedSettings();
+
+    saveExtendedSettings({
+      ...current,
+      search: {
+        ...current.search,
+        maxResults: preset.maxResults,
+        recursiveDepth: preset.recursiveDepth,
+      },
+      output: {
+        ...current.output,
+        detailLevel: preset.detailLevel,
+        eGovCrossReference: preset.eGovCrossReference,
+        includeLawExcerpts: preset.includeLawExcerpts,
+        // Standard should stay lightweight; Professional defaults to ON.
+        includeSearchLog: level === 'professional',
+      },
+    });
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 // Storage key for custom presets
 const CUSTOM_PRESETS_KEY = 'medai_custom_presets_v1';
@@ -100,6 +133,9 @@ export function useConfig() {
     field: K,
     value: AppConfig[K]
   ) => {
+    if (field === 'difficultyLevel') {
+      syncExtendedSettingsForDifficulty(value as DifficultyLevel);
+    }
     setConfig(prev => {
       if (field === 'difficultyLevel' && value === 'standard') {
         const defaults = createDefaultConfig(prev.activeTab);
