@@ -35,6 +35,7 @@ function filterOutputSectionsForDifficulty(
 
 function buildBaseTemplate(extSettings: ExtendedSettings, difficultyLevel: DifficultyLevel): string {
   const { template, output, search } = extSettings;
+  const isStandard = difficultyLevel === 'standard';
   
   // Build Role section - prevent duplicate intro text
   const roleIntro = 'あなたは、内部知識を一切持たない「' + template.roleTitle + '」です。';
@@ -50,7 +51,7 @@ function buildBaseTemplate(extSettings: ExtendedSettings, difficultyLevel: Diffi
 ${template.disclaimers.map(d => `- ${d}`).join('\n')}`;
 
   // Build proof section (conditionally included)
-  const proofSectionBegin = `PROOF_SECTION_BEGIN
+  const proofSectionBegin = isStandard ? '' : `PROOF_SECTION_BEGIN
 # 実証
 以下、実用に耐えうるか実証せよ。プロンプトの指示に従い一次資料を取得し、最後に実証結果として達成事項と制約事項を述べよ。
 PROOF_SECTION_END`;
@@ -66,7 +67,7 @@ $U_web$: e-Gov Web URL
 $Law_xml$: $U_xml$ から取得したXML`
     : '';
 
-  const modelDefinition = `# Model Definition
+  const modelDefinition = isStandard ? '' : `# Model Definition
 
 ## Variables
 $Date_today$: システムの現在日付(YYYY-MM-DD)
@@ -88,7 +89,23 @@ $RelevantSection$: $SpecificQuestion$ に関連する本文箇所（ページ番
 ${eGovVariables}`;
 
   // Build rules section
-  let rulesSection = `## Rules (Strict Logic)
+  let rulesSection = isStandard
+    ? `## Rules (Standard)
+1. ゼロ知識
+   ・一次資料を取得する前に、内容を断定しない
+   ・一次資料に書かれていないことは「未確認」とする
+   ・推測で補完しない
+
+2. 公式優先
+   ・根拠は必ず公式一次資料(公式Web/公式PDF)に限定する
+   ・同名文書が複数版ある場合、${search.priorityRule === 'revised_date' ? '改定日が最も新しい最新版' : search.priorityRule === 'published_date' ? '公開日が最も新しい版' : '関連度が最も高い版'}を優先する
+   ・優先ドメイン:
+[[PRIORITY_DOMAINS_LIST]]
+
+3. 出力
+   ・ユーザーが軽く判断できるよう、重要ポイントだけを短く箇条書きでまとめる
+   ・URLは必ず Markdown の [表示ラベル](URL) 形式で提示する`
+    : `## Rules (Strict Logic)
 1. ゼロ知識
    ・一次資料を取得する前に、内容を断定しない
    ・一次資料に書かれていないことは「不明」とする
@@ -103,14 +120,45 @@ ${eGovVariables}`;
    ・優先ドメイン:
 [[PRIORITY_DOMAINS_LIST]]`;
 
-  // Add excluded domains if any
-  if (search.excludedDomains.length > 0) {
+  if (isStandard) {
+    const languagePhrase =
+      output.languageMode === 'japanese_only'
+        ? '日本語を基本とする'
+        : output.languageMode === 'english_priority'
+          ? '英語を優先'
+          : '日本語を基本とし';
+
     rulesSection += `
+
+4. 検索語
+   ・検索語は${languagePhrase}`;
+
+    if (search.useSiteOperator) {
+      rulesSection += `
+   ・site: 指定を併用する（例: site:mhlw.go.jp 医療AI ガイドライン）`;
+    }
+
+    if (search.useFiletypeOperator && search.filetypes.length > 0) {
+      rulesSection += `
+   ・filetype: 指定を併用する（例: filetype:${search.filetypes[0]} ガイドライン）`;
+    }
+
+    if (search.excludedDomains.length > 0) {
+      rulesSection += `
+
+5. 除外
    ・除外ドメイン:
 ${search.excludedDomains.map(d => `     - ${d}`).join('\n')}`;
-  }
+    }
+  } else {
+    // Add excluded domains if any
+    if (search.excludedDomains.length > 0) {
+      rulesSection += `
+   ・除外ドメイン:
+${search.excludedDomains.map(d => `     - ${d}`).join('\n')}`;
+    }
 
-  rulesSection += `
+    rulesSection += `
 
 3. 個別ケースへの対応
    ・$SpecificQuestion$ が与えられた場合、一般論ではなく当該ケースに直接適用可能な条文・記載を特定する
@@ -134,6 +182,7 @@ ${search.excludedDomains.map(d => `     - ${d}`).join('\n')}`;
    ・一般論や抽象的な説明を避け、ユーザーの質問に直接答える
    ・「○○については○○ガイドラインを参照してください」ではなく、該当箇所を引用して具体的に回答する
    ・引用時は「○○ガイドライン 第X章 X.X節 pXX」のように出典を明記する`;
+  }
 
   // e-Gov section (conditionally included)
   const eGovSection = `EGOV_SECTION_BEGIN
@@ -160,7 +209,12 @@ EGOV_SECTION_END`;
 3. 一次資料で確認できない場合は「一次資料未確認」と明記する`;
 
   // Build task section
-  const taskSection = `# Task
+  const taskSection = isStandard
+    ? `# Task (Standard)
+1. [[QUERY]] について、公式一次資料を中心に${search.maxResults}件まで候補を確認する
+2. 重要な一次資料を3〜8件に絞り、要点だけを抽出する（最新版かどうかは明記）
+3. 出力は「サマリー」「引用文献」「ガイドライン一覧」「3省2ガイドライン（要点）」に限定し、短く整理する`
+    : `# Task
 
 ## Phase 1: 探索計画の確定
 1. ユーザー入力から $Query と $Scope を整理する(目的、対象者、用途、期間)
@@ -463,7 +517,7 @@ Instruction:
 - 回答に使用した根拠は「○○ガイドライン 第X章 X.X節 pXX」の形式で明記すること`;
 
   // Build proof result section
-  const proofResultSection = `PROOF_SECTION_BEGIN
+  const proofResultSection = isStandard ? '' : `PROOF_SECTION_BEGIN
 # 実証結果
 最後に、本プロンプトが実用に耐えうるかを自己点検し、達成事項と制約事項を簡潔に述べよ。
 PROOF_SECTION_END`;

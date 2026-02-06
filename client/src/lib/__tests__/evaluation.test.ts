@@ -138,7 +138,7 @@ describe('Evaluation Test Cases', () => {
     });
 
     it('should include Phase 6 verification section', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const extSettings = createTestSettings();
 
       const prompt = generatePrompt(config, extSettings);
@@ -149,7 +149,7 @@ describe('Evaluation Test Cases', () => {
     });
 
     it('should include unconfirmed points section', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const extSettings = createTestSettings();
 
       const prompt = generatePrompt(config, extSettings);
@@ -172,7 +172,7 @@ describe('Evaluation Test Cases', () => {
     });
 
     it('should include references section with citation format', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const extSettings = createTestSettings();
 
       const prompt = generatePrompt(config, extSettings);
