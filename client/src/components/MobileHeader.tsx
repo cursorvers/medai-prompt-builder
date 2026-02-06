@@ -24,22 +24,29 @@ export function MobileHeader() {
       {/* Main header row */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg shadow-sm bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-base font-bold text-foreground leading-tight">
-              GuideScope
-            </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-muted-foreground">
-                医療AI ガイドライン探索
-              </span>
-              <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
-                {TEMPLATE_BASE_DATE}
-              </span>
+          <button
+            type="button"
+            onClick={() => setLocation('/')}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:opacity-90 transition-opacity"
+            aria-label="トップページへ戻る"
+          >
+            <div className="w-9 h-9 rounded-lg shadow-sm bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-primary-foreground" />
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-bold text-foreground leading-tight">
+                GuideScope
+              </h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-muted-foreground">
+                  医療AI ガイドライン探索
+                </span>
+                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+                  {TEMPLATE_BASE_DATE}
+                </span>
+              </div>
+            </div>
+          </button>
 
           {/* Settings Button */}
           <button

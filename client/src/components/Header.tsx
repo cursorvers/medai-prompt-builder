@@ -24,7 +24,12 @@ export function Header() {
       <div className="container py-4">
         <div className="flex items-center justify-between">
           {/* Logo and Title */}
-          <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setLocation('/')}
+            className="flex items-center gap-4 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:opacity-90 transition-opacity"
+            aria-label="トップページへ戻る"
+          >
             <div className="relative">
               <div className="w-12 h-12 rounded-xl shadow-md bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
                 <Shield className="w-6 h-6 text-primary-foreground" />
@@ -41,7 +46,7 @@ export function Header() {
                 医療AI 国内ガイドライン探索
               </p>
             </div>
-          </div>
+          </button>
 
           {/* Right side: Date Badge + Settings */}
           <div className="flex items-center gap-3">

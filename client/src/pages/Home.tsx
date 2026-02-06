@@ -440,15 +440,24 @@ export default function Home() {
         <div className="container flex items-center justify-between h-20">
           <div className="flex items-center gap-5">
             {/* Product Name - Primary */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-                <Sparkles className="w-7 h-7 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">GuideScope</h1>
-                <p className="text-xs text-muted-foreground leading-tight">生成AI 国内ガイドライン検索</p>
-              </div>
-            </div>
+            <Link href="/">
+              <a
+                className="flex items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 hover:opacity-90 transition-opacity"
+                aria-label="トップページへ戻る"
+                onClick={() => {
+                  // If already on the top page, still make it feel responsive.
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+                  <Sparkles className="w-7 h-7 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">GuideScope</h1>
+                  <p className="text-xs text-muted-foreground leading-tight">生成AI 国内ガイドライン検索</p>
+                </div>
+              </a>
+            </Link>
 
             {/* Cursorvers Branding - Secondary */}
             <a
