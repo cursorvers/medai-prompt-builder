@@ -5,8 +5,8 @@ var DIFFICULTY_PRESETS = [
     name: "\u30B9\u30BF\u30F3\u30C0\u30FC\u30C9",
     description: "\u57FA\u672C\u7684\u306A\u60C5\u5831\u53CE\u96C6\u306B\u6700\u9069",
     features: [
-      "\u30AC\u30A4\u30C9\u30E9\u30A4\u30F3\u4E00\u89A7\u306E\u53D6\u5F97",
-      "\u6700\u65B0\u7248\u306E\u78BA\u8A8D",
+      "\u8A73\u7D30\u30B5\u30DE\u30EA\u30FC",
+      "\u5F15\u7528\u6587\u732E\u30EA\u30B9\u30C8",
       "\u57FA\u672C\u7684\u306A\u691C\u7D22\uFF0810\u4EF6\u307E\u3067\uFF09"
     ],
     settings: {
@@ -23,6 +23,7 @@ var DIFFICULTY_PRESETS = [
     name: "\u30D7\u30ED\u30D5\u30A7\u30C3\u30B7\u30E7\u30CA\u30EB",
     description: "\u8A73\u7D30\u306A\u5206\u6790\u3068\u6CD5\u4EE4\u53C2\u7167",
     features: [
+      "\u5192\u982D\u30B5\u30DE\u30EA\u30FC",
       "e-Gov\u6CD5\u4EE4\u30AF\u30ED\u30B9\u30EA\u30D5\u30A1\u30EC\u30F3\u30B9",
       "\u95A2\u9023\u6587\u66F8\u306E\u518D\u5E30\u7684\u53D6\u5F97\uFF082\u968E\u5C64\uFF09",
       "\u8A73\u7D30\u306A\u6761\u6587\u629C\u7C8B",
@@ -224,7 +225,7 @@ function createConfig(options) {
     activeTab: options.preset || "medical-device"
   };
 }
-function buildBaseTemplate(extSettings) {
+function buildBaseTemplate(extSettings, difficultyLevel) {
   const { template, output, search } = extSettings;
   const roleIntro = "\u3042\u306A\u305F\u306F\u3001\u5185\u90E8\u77E5\u8B58\u3092\u4E00\u5207\u6301\u305F\u306A\u3044\u300C" + template.roleTitle + "\u300D\u3067\u3059\u3002";
   const cleanedDescription = template.roleDescription.replace(/あなたは、内部知識を一切持たない「[^」]+」です。\s*/g, "").trim();
@@ -328,6 +329,26 @@ EGOV_SECTION_END`;
   const enabledSections = template.outputSections.filter((s) => s.enabled).sort((a, b) => a.order - b.order);
   let outputFormatSection = `# Output Format
 `;
+  if (difficultyLevel === "standard") {
+    outputFormatSection += `
+\u25A0 \u30B5\u30DE\u30EA\u30FC
+\u30FB[[QUERY]]\u306B\u95A2\u3059\u308B\u7D50\u8AD6\u3068\u91CD\u8981\u30DD\u30A4\u30F3\u30C8\u30925\u301C8\u70B9\u3067\u6574\u7406\u3059\u308B
+\u30FB$SpecificQuestion$ \u304C\u3042\u308B\u5834\u5408\u306F\u7D50\u8AD6\u3092\u5148\u306B\u660E\u8A18\u3057\u3001\u6839\u62E0\u7B87\u6240\u3092\u4F75\u8A18\u3059\u308B
+\u30FB\u5404\u30DD\u30A4\u30F3\u30C8\u306B\u300C\u6587\u66F8\u540D \u7B2CX\u7AE0 X.X\u7BC0 pXX\u300D\u3092\u4ED8\u8A18\u3059\u308B
+\u30FB\u4E00\u6B21\u8CC7\u6599\u672A\u78BA\u8A8D\u306E\u4E8B\u9805\u306F\u660E\u78BA\u306B\u300C\u672A\u78BA\u8A8D\u300D\u3068\u3059\u308B
+
+\u25A0 \u5F15\u7528\u6587\u732E
+\u30FB\u53C2\u7167\u3057\u305F\u4E00\u6B21\u8CC7\u6599\u3092\u6587\u66F8\u5358\u4F4D\u3067\u5217\u6319\u3059\u308B
+\u30FB\u5F62\u5F0F: \u6587\u66F8\u540D\uFF08\u767A\u884C\u4E3B\u4F53\u3001\u6539\u5B9A\u65E5\uFF09 [\u516C\u5F0F\u30DA\u30FC\u30B8](URL) [PDF](URL)
+\u30FB\u6CD5\u4EE4\u306F [XML\u30C7\u30FC\u30BF(API)](U_xml) \u3068 [\u516C\u5F0F\u95B2\u89A7(e-Gov)](U_web)
+`;
+  } else {
+    outputFormatSection += `
+\u25A0 \u30B5\u30DE\u30EA\u30FC
+\u30FB\u7D50\u8AD6\u3068\u4E3B\u8981\u30DD\u30A4\u30F3\u30C8\u30923\u301C5\u70B9\u3067\u7C21\u6F54\u306B\u6574\u7406\u3059\u308B
+\u30FB\u5404\u30DD\u30A4\u30F3\u30C8\u306B\u6839\u62E0\u6587\u66F8\u540D\u30FB\u7AE0\u7BC0\u30FB\u30DA\u30FC\u30B8\u3092\u4F75\u8A18\u3059\u308B
+`;
+  }
   for (const section of enabledSections) {
     switch (section.id) {
       case "disclaimer":
@@ -450,12 +471,13 @@ function generatePromptFromConfig(config, extSettings) {
   const settings = extSettings || getDefaultExtendedSettings();
   const difficultyPreset = getDifficultyPreset(config.difficultyLevel);
   const presetSettings = difficultyPreset.settings;
+  const isStandard = config.difficultyLevel === "standard";
   const adjustedSettings = {
     ...settings,
     output: {
       ...settings.output,
       detailLevel: presetSettings.detailLevel,
-      eGovCrossReference: presetSettings.eGovCrossReference || config.eGovCrossReference,
+      eGovCrossReference: isStandard ? presetSettings.eGovCrossReference : presetSettings.eGovCrossReference || config.eGovCrossReference,
       includeLawExcerpts: presetSettings.includeLawExcerpts
     },
     search: {
@@ -466,9 +488,9 @@ function generatePromptFromConfig(config, extSettings) {
   };
   const effectiveConfig = {
     ...config,
-    proofMode: presetSettings.proofMode || config.proofMode
+    proofMode: isStandard ? presetSettings.proofMode : presetSettings.proofMode || config.proofMode
   };
-  let prompt = buildBaseTemplate(adjustedSettings);
+  let prompt = buildBaseTemplate(adjustedSettings, config.difficultyLevel);
   prompt = prompt.replace(/\[\[DATE_TODAY\]\]/g, config.dateToday);
   prompt = prompt.replace(/\[\[QUERY\]\]/g, config.query || "(\u672A\u5165\u529B)");
   const specificQuestion = config.query ? `\u300C${config.query}\u300D\u306B\u3064\u3044\u3066\u3001\u9069\u7528\u53EF\u80FD\u306A\u5177\u4F53\u7684\u306A\u6761\u6587\u30FB\u8A18\u8F09\u3092\u7279\u5B9A\u3057\u3001\u539F\u6587\u3092\u5F15\u7528\u3057\u3066\u56DE\u7B54\u305B\u3088` : "(\u672A\u5165\u529B)";

@@ -140,6 +140,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [newScope, setNewScope] = useState('');
   const [newDomain, setNewDomain] = useState('');
+  const isStandard = config.difficultyLevel === 'standard';
   
   const handleAddScope = () => {
     if (newScope.trim()) {
@@ -278,12 +279,14 @@ export function SettingsPanel({
             checked={config.officialDomainPriority}
             onCheckedChange={(v) => onUpdateField('officialDomainPriority', v)}
             warning={!config.officialDomainPriority}
+            locked={isStandard}
           />
           <SwitchRow
             id="siteOperator"
             label="site: 演算子併用"
             checked={config.siteOperator}
             onCheckedChange={(v) => onUpdateField('siteOperator', v)}
+            locked={isStandard}
           />
           <SwitchRow
             id="latestVersion"
@@ -291,12 +294,14 @@ export function SettingsPanel({
             checked={config.latestVersionPriority}
             onCheckedChange={(v) => onUpdateField('latestVersionPriority', v)}
             warning={!config.latestVersionPriority}
+            locked={isStandard}
           />
           <SwitchRow
             id="pdfDirect"
             label="PDF直リンク優先"
             checked={config.pdfDirectLink}
             onCheckedChange={(v) => onUpdateField('pdfDirectLink', v)}
+            locked={isStandard}
           />
           <div className="h-px bg-border" />
           <SwitchRow
@@ -304,12 +309,14 @@ export function SettingsPanel({
             label="検索ログを出力に含める"
             checked={config.includeSearchLog}
             onCheckedChange={(v) => onUpdateField('includeSearchLog', v)}
+            locked={isStandard}
           />
           <SwitchRow
             id="eGov"
             label="e-Gov法令クロスリファレンス"
             checked={config.eGovCrossReference}
             onCheckedChange={(v) => onUpdateField('eGovCrossReference', v)}
+            locked={isStandard}
           />
           <SwitchRow
             id="proofMode"
@@ -317,6 +324,7 @@ export function SettingsPanel({
             description="プロンプトに実証セクションを含める"
             checked={config.proofMode}
             onCheckedChange={(v) => onUpdateField('proofMode', v)}
+            locked={isStandard}
           />
         </div>
       </SectionCard>

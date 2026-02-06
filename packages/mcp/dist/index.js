@@ -13,7 +13,7 @@ import {
   generateSearchQueries,
   TAB_PRESETS,
   DIFFICULTY_PRESETS
-} from "@cursorvers/guidescope";
+} from "@cursorversinc/guidescope";
 var server = new Server(
   {
     name: "guidescope",

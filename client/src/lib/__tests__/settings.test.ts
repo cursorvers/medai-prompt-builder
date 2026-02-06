@@ -355,7 +355,7 @@ describe('settings.ts', () => {
     });
 
     it('should have DEFAULT_OUTPUT_SECTIONS with correct structure', () => {
-      expect(DEFAULT_OUTPUT_SECTIONS).toHaveLength(8);
+      expect(DEFAULT_OUTPUT_SECTIONS).toHaveLength(10);
 
       const sectionIds = DEFAULT_OUTPUT_SECTIONS.map(s => s.id);
       expect(sectionIds).toContain('disclaimer');
@@ -364,6 +364,8 @@ describe('settings.ts', () => {
       expect(sectionIds).toContain('data_sources');
       expect(sectionIds).toContain('guideline_list');
       expect(sectionIds).toContain('three_ministry');
+      expect(sectionIds).toContain('references');
+      expect(sectionIds).toContain('unconfirmed_points');
       expect(sectionIds).toContain('search_log');
       expect(sectionIds).toContain('guardrail');
 
@@ -372,7 +374,7 @@ describe('settings.ts', () => {
 
       // Orders should be sequential
       const orders = DEFAULT_OUTPUT_SECTIONS.map(s => s.order).sort((a, b) => a - b);
-      expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     });
 
     it('should have DEFAULT_SEARCH_SETTINGS with correct values', () => {

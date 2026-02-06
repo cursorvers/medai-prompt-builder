@@ -3,11 +3,11 @@
  * Japanese medical guideline search prompt generator
  *
  * @packageDocumentation
- * @module @cursorvers/guidescope
+ * @module @cursorversinc/guidescope
  *
  * @example
  * ```typescript
- * import { generate, generatePrompt, generateSearchQueries } from '@cursorvers/guidescope';
+ * import { generate, generatePrompt, generateSearchQueries } from '@cursorversinc/guidescope';
  *
  * // Simple usage
  * const result = generate({

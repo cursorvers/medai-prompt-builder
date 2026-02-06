@@ -5,6 +5,7 @@
 
 import type {
   AppConfig,
+  DifficultyLevel,
   ExtendedSettings,
   GeneratePromptOptions,
   GenerateResult,
@@ -124,7 +125,7 @@ export function createConfig(options: GeneratePromptOptions): AppConfig {
 // Template Building
 // ============================================================================
 
-function buildBaseTemplate(extSettings: ExtendedSettings): string {
+function buildBaseTemplate(extSettings: ExtendedSettings, difficultyLevel: DifficultyLevel): string {
   const { template, output, search } = extSettings;
 
   // Build Role section
@@ -252,32 +253,53 @@ EGOV_SECTION_END`;
 
   let outputFormatSection = `# Output Format\n`;
 
+  if (difficultyLevel === 'standard') {
+    outputFormatSection += `
+■ サマリー
+・[[QUERY]]に関する結論と重要ポイントを5〜8点で整理する
+・$SpecificQuestion$ がある場合は結論を先に明記し、根拠箇所を併記する
+・各ポイントに「文書名 第X章 X.X節 pXX」を付記する
+・一次資料未確認の事項は明確に「未確認」とする
+
+■ 引用文献
+・参照した一次資料を文書単位で列挙する
+・形式: 文書名（発行主体、改定日） [公式ページ](URL) [PDF](URL)
+・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)
+`;
+  } else {
+    outputFormatSection += `
+■ サマリー
+・結論と主要ポイントを3〜5点で簡潔に整理する
+・各ポイントに根拠文書名・章節・ページを併記する
+`;
+  }
+
   for (const section of enabledSections) {
     switch (section.id) {
-      case 'disclaimer':
-        outputFormatSection += `
+    case 'disclaimer':
+      outputFormatSection += `
 ■ 免責
 ・本出力は情報整理支援です。個別ケースについては専門家にご相談下さい。
 ・本出力は[[DATE_TODAY]]時点の取得結果であり、更新があり得るため一次資料で確認すること。
 `;
-        break;
-      case 'search_conditions':
-        outputFormatSection += `
+      break;
+    case 'search_conditions':
+      outputFormatSection += `
 ■ 検索条件
 ・日付: [[DATE_TODAY]]
 ・テーマ: [[QUERY]]
 ・範囲: [[SCOPE]]
 `;
-        break;
-      case 'data_sources':
-        outputFormatSection += `
+      break;
+    case 'data_sources':
+      outputFormatSection += `
 ■ 参照データソース
 ・各文書について [公式ページ](URL) と [PDF](URL) を列挙
 ・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)
 `;
-        break;
-      case 'guideline_list':
-        outputFormatSection += `
+      break;
+    case 'guideline_list':
+      outputFormatSection += `
 ■ ガイドライン一覧
 カテゴリ別に、各文書を整理する
 ${output.detailLevel === 'concise' ? `・タイトル、発行主体、版数、公式URL` : output.detailLevel === 'detailed' ? `・タイトル、発行主体、文書種別、版数、対象者、医療AIとの関係、関連法令、実務上の重要ポイント` : `・タイトル、発行主体、文書種別、版数、対象者、医療AIとの関係、関連法令`}
@@ -285,17 +307,17 @@ ${output.detailLevel === 'concise' ? `・タイトル、発行主体、版数、
 カテゴリ例
 [[CATEGORIES_LIST]]
 `;
-        break;
-      case 'three_ministry':
-        outputFormatSection += `
+      break;
+    case 'three_ministry':
+      outputFormatSection += `
 ■ 3省2ガイドラインの確定結果
 ・構成文書の対応関係
 ・対象者の違い
 ・実務上の重要ポイント
 `;
-        break;
-      case 'specific_case':
-        outputFormatSection += `
+      break;
+    case 'specific_case':
+      outputFormatSection += `
 ■ 個別ケースへの回答
 【直接適用可能な規制・ガイドライン】
 ・根拠文書、該当箇所、原文抜粋、要約
@@ -306,23 +328,23 @@ ${output.detailLevel === 'concise' ? `・タイトル、発行主体、版数、
 【明示的記載がない場合】
 ・類似規定の参照と一般原則からの推論
 `;
-        break;
-      case 'search_log':
-        if (output.includeSearchLog) {
-          outputFormatSection += `
+      break;
+    case 'search_log':
+      if (output.includeSearchLog) {
+        outputFormatSection += `
 ■ 検索ログ
 ・実際に使った検索語
 ・参照した公式ドメイン一覧
 `;
-        }
-        break;
-      case 'guardrail':
-        outputFormatSection += `
+      }
+      break;
+    case 'guardrail':
+      outputFormatSection += `
 # Guardrail
 ・一次資料を開けない場合は、その旨を明記して推測しない
 ・出力リンクは必ず [表示ラベル](URL) 形式に統一する
 `;
-        break;
+      break;
     }
   }
 
@@ -392,12 +414,15 @@ export function generatePromptFromConfig(config: AppConfig, extSettings?: Extend
   const presetSettings = difficultyPreset.settings;
 
   // Apply difficulty preset to settings
+  const isStandard = config.difficultyLevel === 'standard';
   const adjustedSettings: ExtendedSettings = {
     ...settings,
     output: {
       ...settings.output,
       detailLevel: presetSettings.detailLevel,
-      eGovCrossReference: presetSettings.eGovCrossReference || config.eGovCrossReference,
+      eGovCrossReference: isStandard
+        ? presetSettings.eGovCrossReference
+        : (presetSettings.eGovCrossReference || config.eGovCrossReference),
       includeLawExcerpts: presetSettings.includeLawExcerpts,
     },
     search: {
@@ -409,10 +434,10 @@ export function generatePromptFromConfig(config: AppConfig, extSettings?: Extend
 
   const effectiveConfig = {
     ...config,
-    proofMode: presetSettings.proofMode || config.proofMode,
+    proofMode: isStandard ? presetSettings.proofMode : (presetSettings.proofMode || config.proofMode),
   };
 
-  let prompt = buildBaseTemplate(adjustedSettings);
+  let prompt = buildBaseTemplate(adjustedSettings, config.difficultyLevel);
 
   // Replace placeholders
   prompt = prompt.replace(/\[\[DATE_TODAY\]\]/g, config.dateToday);

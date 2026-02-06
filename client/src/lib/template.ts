@@ -5,7 +5,7 @@
  * Updated to support extended settings for customization
  */
 
-import type { AppConfig } from './presets';
+import type { AppConfig, DifficultyLevel } from './presets';
 import { getDifficultyPreset } from './presets';
 import type { ExtendedSettings } from './settings';
 import { loadExtendedSettings, DEFAULT_ROLE_TITLE, DEFAULT_ROLE_DESCRIPTION } from './settings';
@@ -19,7 +19,7 @@ function formatList(items: string[], prefix: string = '・'): string {
   return items.map(item => `${prefix}${item}`).join('\n');
 }
 
-function buildBaseTemplate(extSettings: ExtendedSettings): string {
+function buildBaseTemplate(extSettings: ExtendedSettings, difficultyLevel: DifficultyLevel): string {
   const { template, output, search } = extSettings;
   
   // Build Role section - prevent duplicate intro text
@@ -149,6 +149,7 @@ EGOV_SECTION_END`;
 ## Phase 2: 候補文書の収集と一次資料取得
 1. 検索で見つかった候補を $Candidate_docs に記録する（最大${search.maxResults}件）
    ・タイトル、発行主体、版数、公開日、改定日、対象者、URL、文書種別、形式(PDF/HTML)
+   ・**引用番号 [n] を割り当て**、以降の引用で参照番号として使用する
 2. $Query に製品/サービス名が含まれる場合、その企業HP上の以下も取得する:
    ・利用規約（Terms of Service）
    ・プライバシーポリシー
@@ -176,8 +177,9 @@ EGOV_SECTION_END`;
 1. $Query$ を「具体的に何を知りたいか」という観点で分解する
    例: 「○○社AI問診の責任分界点」→ 「AI問診システムにおける医療機関と提供事業者の責任範囲をどう定めるか」
 2. Phase 2-4で取得した一次資料から、当該ケースに**直接適用可能な記載**を抽出する
-   ・「○○ガイドライン 第X章 X.X節 pXX」のように具体的に引用
+   ・引用形式: **[n] ○○ガイドライン 第X章 X.X節 pXX** （nはPhase 2で割り当てた番号）
    ・抜粋は原文のまま記載し、要約は別に付す
+   ・同一文書からの複数引用は同じ番号を使用（例: [1] pXX, [1] pYY）
 3. 複数の解釈が可能な場合:
    ・選択肢A/B/Cを列挙
    ・各選択肢の根拠条文を示す
@@ -185,7 +187,20 @@ EGOV_SECTION_END`;
 4. 明示的な記載がない場合:
    ・「明示的記載なし」と明記
    ・類似規定（例: 他の医療機器の責任分界事例）があれば参考として提示
-   ・一般原則（例: 3省2GLの責任分界に関する基本的考え方）を引用`;
+   ・一般原則（例: 3省2GLの責任分界に関する基本的考え方）を引用
+
+## Phase 6: 反証・検証（信頼性確保）
+1. 見つけた情報の検証
+   ・複数のガイドラインで矛盾する記載がないか確認
+   ・より新しい通知や事務連絡で上書きされていないか確認
+   ・適用除外や例外規定がないか確認
+2. 情報の最新性確認
+   ・「最新版」と表示されているか、更新予告がないか確認
+   ・パブリックコメント中や改正作業中の情報がないか確認
+3. 未確認事項の明示
+   ・探索で到達できなかった一次資料があれば「未確認」として明記
+   ・該当する情報が見つからなかった場合は「該当情報なし（探索範囲内）」と記載
+   ・信頼度が低い情報源（二次資料のみ）は注意喚起を付す`;
 
   // Build output format section based on enabled sections
   const enabledSections = template.outputSections
@@ -193,35 +208,56 @@ EGOV_SECTION_END`;
     .sort((a, b) => a.order - b.order);
   
   let outputFormatSection = `# Output Format\n`;
-  
-  // Build each enabled section
+
+  if (difficultyLevel === 'standard') {
+    outputFormatSection += `
+■ サマリー
+・[[QUERY]]に関する結論と重要ポイントを5〜8点で整理する
+・$SpecificQuestion$ がある場合は結論を先に明記し、根拠箇所を併記する
+・各ポイントに「文書名 第X章 X.X節 pXX」を付記する
+・一次資料未確認の事項は明確に「未確認」とする
+
+■ 引用文献
+・参照した一次資料を文書単位で列挙する
+・形式: 文書名（発行主体、改定日） [公式ページ](URL) [PDF](URL)
+・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)
+`;
+  } else {
+    outputFormatSection += `
+■ サマリー
+・結論と主要ポイントを3〜5点で簡潔に整理する
+・各ポイントに根拠文書名・章節・ページを併記する
+`;
+  }
+
+  // Build each enabled section (both standard and professional)
   for (const section of enabledSections) {
     switch (section.id) {
-      case 'disclaimer':
-        outputFormatSection += `
+    case 'disclaimer':
+      outputFormatSection += `
 ■ 免責
 ・本出力は情報整理支援です。個別ケースについては有資格者など専門家にご相談下さい。
 ・本出力は[[DATE_TODAY]]時点の取得結果であり、更新があり得るため一次資料で確認すること。
 `;
-        break;
-      case 'search_conditions':
-        outputFormatSection += `
+      break;
+    case 'search_conditions':
+      outputFormatSection += `
 ■ 検索条件
 ・日付: [[DATE_TODAY]]
 ・テーマ: [[QUERY]]
 ・範囲: [[SCOPE]]
 ・優先: 公式一次資料、最新版
 `;
-        break;
-      case 'data_sources':
-        outputFormatSection += `
+      break;
+    case 'data_sources':
+      outputFormatSection += `
 ■ 参照データソース
 ・各文書について [公式ページ](URL) と [PDF](URL) を列挙(存在する方のみ)
 ・法令は [XMLデータ(API)](U_xml) と [公式閲覧(e-Gov)](U_web)
 `;
-        break;
-      case 'guideline_list':
-        outputFormatSection += `
+      break;
+    case 'guideline_list':
+      outputFormatSection += `
 ■ ガイドライン一覧
 カテゴリ別に、各文書を次の項目で整理する
 ${output.detailLevel === 'concise' ? `・タイトル
@@ -246,17 +282,30 @@ ${output.detailLevel === 'concise' ? `・タイトル
 カテゴリ例
 [[CATEGORIES_LIST]]
 `;
-        break;
-      case 'three_ministry':
-        outputFormatSection += `
+      break;
+    case 'three_ministry':
+      outputFormatSection += `
 ■ 3省2ガイドラインの確定結果
-・構成文書の対応関係
-・対象者の違い
-・実務上の重要ポイント
+
+【構成文書】
+| # | 文書名 | 発行主体 | 対象者 | 最新版 | 公式URL |
+|---|--------|----------|--------|--------|---------|
+| 1 | 医療情報システムの安全管理に関するガイドライン | 厚生労働省 | 医療機関等 | 第X.X版 | [PDF](URL) |
+| 2 | 医療情報を取り扱う情報システム・サービスの提供事業者における安全管理ガイドライン | 経済産業省・総務省 | 事業者 | 第X版 | [PDF](URL) |
+
+【対象者別の適用関係】
+・医療機関・介護事業者 → 主に厚労省GL
+・システム提供事業者 → 主に経産省・総務省GL
+・両方の立場がある場合 → 両GL参照が必要
+
+【実務上の重要ポイント】
+・責任分界点の明確化（契約・SLA）
+・委託先管理の要件
+・クラウド利用時の留意事項
 `;
-        break;
-      case 'specific_case':
-        outputFormatSection += `
+      break;
+    case 'specific_case':
+      outputFormatSection += `
 ■ 個別ケースへの回答
 【質問の分解】
 ・ユーザーの質問を「何を」「どの観点で」知りたいかに分解
@@ -284,26 +333,57 @@ ${output.detailLevel === 'concise' ? `・タイトル
 ・一般原則からの推論: ...
 ・専門家への相談推奨事項: ...
 `;
-        break;
-      case 'search_log':
-        if (output.includeSearchLog) {
-          outputFormatSection += `
+      break;
+    case 'search_log':
+      if (output.includeSearchLog) {
+        outputFormatSection += `
 ■ 検索ログ
 ・実際に使った検索語
 ・参照した公式ドメイン一覧
 ・除外した候補と理由(例: 公式一次資料に到達できない)
 `;
-        }
-        break;
-      case 'guardrail':
-        outputFormatSection += `
+      }
+      break;
+    case 'references':
+      outputFormatSection += `
+■ 参考文献（引用番号リスト）
+本文中で使用した引用番号 [n] と対応する一次資料の一覧:
+
+| 番号 | 文書名 | 発行主体 | 版/年 | URL |
+|------|--------|----------|-------|-----|
+| [1]  | ○○ガイドライン | 厚生労働省 | 第X版(202Y) | [公式](URL) |
+| [2]  | △△指針 | 経済産業省 | 令和X年 | [PDF](URL) |
+| ... | ... | ... | ... | ... |
+
+※本文中の [n] はこの表の番号に対応
+`;
+      break;
+    case 'unconfirmed_points':
+      outputFormatSection += `
+■ 未確認事項・追加調査タスク
+【探索で到達できなかった情報】
+・[リスト形式で、取得を試みたが到達できなかった一次資料]
+・例: 「○○通知（令和X年）- PMDA公式サイトで発見できず」
+
+【追加調査が推奨される事項】
+・[ユーザーのケースに対して追加で確認すべき事項]
+・例: 「製品固有の適合性については個別相談が必要」
+
+【信頼度に関する注意】
+・一次資料から直接確認: ◎（高信頼度）
+・二次資料経由で確認: △（要追加確認）
+・情報なし: ×（未確認）
+`;
+      break;
+    case 'guardrail':
+      outputFormatSection += `
 # Guardrail
 ・一次資料を開けない、本文を取得できない場合は、その旨を明記して推測しない
 ・最新版か不明な場合は、候補の改定日を比較し「最新版候補」として扱う
 ・出力リンクは必ず [表示ラベル](URL) 形式に統一する
 ・e-Govは上記の固定フォーマットのみを使い、検索エンジン経由のURL生成をしない
 `;
-        break;
+      break;
     }
   }
 
@@ -376,28 +456,38 @@ export function generatePrompt(config: AppConfig, extSettings?: ExtendedSettings
   const presetSettings = difficultyPreset.settings;
 
   // Apply difficulty preset to settings
+  // If extSettings is explicitly provided, use its values; otherwise apply difficulty preset
+  const isStandard = config.difficultyLevel === 'standard';
+  const hasExplicitSettings = !!extSettings && !isStandard;
   const adjustedSettings: ExtendedSettings = {
     ...settings,
     output: {
       ...settings.output,
-      detailLevel: presetSettings.detailLevel,
-      eGovCrossReference: presetSettings.eGovCrossReference || config.eGovCrossReference,
-      includeLawExcerpts: presetSettings.includeLawExcerpts,
+      // Use explicit settings if provided, otherwise apply difficulty preset
+      detailLevel: hasExplicitSettings ? settings.output.detailLevel : presetSettings.detailLevel,
+      eGovCrossReference: isStandard
+        ? presetSettings.eGovCrossReference
+        : (hasExplicitSettings
+          ? settings.output.eGovCrossReference
+          : (presetSettings.eGovCrossReference || config.eGovCrossReference)),
+      includeLawExcerpts: isStandard
+        ? presetSettings.includeLawExcerpts
+        : (hasExplicitSettings ? settings.output.includeLawExcerpts : presetSettings.includeLawExcerpts),
     },
     search: {
       ...settings.search,
-      recursiveDepth: presetSettings.recursiveDepth,
-      maxResults: presetSettings.maxResults,
+      recursiveDepth: hasExplicitSettings ? settings.search.recursiveDepth : presetSettings.recursiveDepth,
+      maxResults: hasExplicitSettings ? settings.search.maxResults : presetSettings.maxResults,
     },
   };
 
   // Override proofMode from preset if professional
   const effectiveConfig = {
     ...config,
-    proofMode: presetSettings.proofMode || config.proofMode,
+    proofMode: isStandard ? presetSettings.proofMode : (presetSettings.proofMode || config.proofMode),
   };
 
-  let prompt = buildBaseTemplate(adjustedSettings);
+  let prompt = buildBaseTemplate(adjustedSettings, config.difficultyLevel);
   
   // Replace date
   prompt = prompt.replace(/\[\[DATE_TODAY\]\]/g, config.dateToday);

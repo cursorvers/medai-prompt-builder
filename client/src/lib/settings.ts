@@ -117,8 +117,10 @@ export const DEFAULT_OUTPUT_SECTIONS = [
   { id: 'data_sources', name: '参照データソース', enabled: true, order: 4 },
   { id: 'guideline_list', name: 'ガイドライン一覧', enabled: true, order: 5 },
   { id: 'three_ministry', name: '3省2ガイドライン確定結果', enabled: true, order: 6 },
-  { id: 'search_log', name: '検索ログ', enabled: true, order: 7 },
-  { id: 'guardrail', name: 'ガードレール', enabled: true, order: 8 },
+  { id: 'references', name: '参考文献（引用番号）', enabled: true, order: 7 },
+  { id: 'unconfirmed_points', name: '未確認事項・追加調査', enabled: true, order: 8 },
+  { id: 'search_log', name: '検索ログ', enabled: true, order: 9 },
+  { id: 'guardrail', name: 'ガードレール', enabled: true, order: 10 },
 ];
 
 export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {

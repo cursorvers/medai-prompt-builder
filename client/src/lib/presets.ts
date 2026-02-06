@@ -45,8 +45,8 @@ export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
     description: '基本的な情報収集に最適',
     icon: 'star',
     features: [
-      'ガイドライン一覧の取得',
-      '最新版の確認',
+      '詳細サマリー',
+      '引用文献リスト',
       '基本的な検索（10件まで）',
     ],
     settings: {
@@ -64,8 +64,10 @@ export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
     description: '詳細な分析と法令参照に最適',
     icon: 'zap',
     features: [
+      '冒頭サマリー',
       'e-Gov法令参照の自動取得',
       '関連文書の再帰的探索',
+      '詳細な条文抜粋',
       '詳細検索（20件まで）',
     ],
     settings: {

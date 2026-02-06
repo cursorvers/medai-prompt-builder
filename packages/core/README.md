@@ -1,11 +1,11 @@
-# @cursorvers/guidescope
+# @cursorversinc/guidescope
 
 Japanese medical guideline search prompt generator for AI assistants.
 
 ## Installation
 
 ```bash
-npm install @cursorvers/guidescope
+npm install @cursorversinc/guidescope
 ```
 
 ## Usage
@@ -13,7 +13,7 @@ npm install @cursorvers/guidescope
 ### Simple Usage
 
 ```typescript
-import { generate } from '@cursorvers/guidescope';
+import { generate } from '@cursorversinc/guidescope';
 
 const result = generate({
   query: '医療AIの臨床導入における安全管理',
@@ -27,7 +27,7 @@ console.log(result.config);        // Full configuration
 ### With Options
 
 ```typescript
-import { generate } from '@cursorvers/guidescope';
+import { generate } from '@cursorversinc/guidescope';
 
 const result = generate({
   query: '医療AIの臨床導入における安全管理',
@@ -42,7 +42,7 @@ const result = generate({
 ### Generate Only Prompt
 
 ```typescript
-import { generatePrompt } from '@cursorvers/guidescope';
+import { generatePrompt } from '@cursorversinc/guidescope';
 
 const prompt = generatePrompt({
   query: 'SaMD承認申請',
@@ -53,7 +53,7 @@ const prompt = generatePrompt({
 ### Generate Only Search Queries
 
 ```typescript
-import { generateSearchQueries } from '@cursorvers/guidescope';
+import { generateSearchQueries } from '@cursorversinc/guidescope';
 
 const queries = generateSearchQueries({
   query: '生成AI 医療',

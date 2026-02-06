@@ -334,12 +334,27 @@ export function OutputPanel({
                       size="icon"
                       className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 h-8 w-8"
                       onClick={() => handleCopy(query, `query-${index}`)}
+                      title="コピー"
+                      aria-label="コピー"
                     >
                       {copiedId === `query-${index}` ? (
                         <Check className="w-4 h-4 text-emerald-500" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 h-8 w-8"
+                      onClick={() => {
+                        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                      }}
+                      title="Googleで検索"
+                      aria-label="Googleで検索"
+                    >
+                      <ExternalLink className="w-4 h-4" />
                     </Button>
                   </div>
                 ))}

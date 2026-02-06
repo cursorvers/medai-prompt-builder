@@ -102,6 +102,23 @@ jspm_packages/
 tmp/
 temp/
 
+# Local assistant metadata (do not commit)
+/.claude/.project-init-status
+/.claude/.project-init-status.bak
+/.claude/state/
+/client/.claude/
+/packages/core/.claude/
+/packages/mcp/.claude/
+
+# Generated analysis notes (local)
+/ANALYSIS_SUMMARY.txt
+/ARCHITECTURE_SUMMARY.md
+/INDEX.md
+/PROJECT_ANALYSIS.md
+
+# Repo uses pnpm; avoid committing npm lockfiles inside workspace packages
+/packages/*/package-lock.json
+
 # Database
 *.db
 *.sqlite

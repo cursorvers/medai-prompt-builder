@@ -1,5 +1,5 @@
 {
-  "name": "@cursorvers/guidescope-mcp",
+  "name": "@cursorversinc/guidescope-mcp",
   "version": "1.0.0",
   "description": "MCP server for GuideScope - Japanese medical guideline search prompt generator",
   "type": "module",
@@ -33,7 +33,7 @@
     "directory": "packages/mcp"
   },
   "dependencies": {
-    "@cursorvers/guidescope": "workspace:*",
+    "@cursorversinc/guidescope": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {

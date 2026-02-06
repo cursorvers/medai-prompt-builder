@@ -99,7 +99,9 @@ export function hasPrivacyIssues(text: string): boolean {
 export function getPrivacyWarningMessage(warnings: PrivacyWarning[]): string {
   if (warnings.length === 0) return '';
 
-  const types = [...new Set(warnings.map((w) => w.type))];
+  const types = Array.from(
+    new Set<PrivacyWarning['type']>(warnings.map((w) => w.type))
+  );
   const typeMessages: Record<PrivacyWarning['type'], string> = {
     facility: '施設名',
     patient_id: '患者ID',

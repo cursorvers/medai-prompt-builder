@@ -16,7 +16,7 @@ import {
   TAB_PRESETS,
   DIFFICULTY_PRESETS,
   type GeneratePromptOptions,
-} from '@cursorvers/guidescope';
+} from '@cursorversinc/guidescope';
 
 // Create MCP server
 const server = new Server(

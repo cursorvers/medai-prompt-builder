@@ -41,18 +41,18 @@
 guidescope/
 ├── client/           # Web UI (GitHub Pages)
 ├── packages/
-│   ├── core/         # @cursorvers/guidescope - コアライブラリ
-│   └── mcp/          # @cursorvers/guidescope-mcp - MCP サーバー
+│   ├── core/         # @cursorversinc/guidescope - コアライブラリ
+│   └── mcp/          # @cursorversinc/guidescope-mcp - MCP サーバー
 ```
 
 ### npm パッケージ
 
 ```bash
-npm install @cursorvers/guidescope
+npm install @cursorversinc/guidescope
 ```
 
 ```typescript
-import { generate, generatePrompt, generateSearchQueries } from '@cursorvers/guidescope';
+import { generate, generatePrompt, generateSearchQueries } from '@cursorversinc/guidescope';
 
 // プロンプトと検索クエリを生成
 const result = generate({
@@ -72,7 +72,7 @@ console.log(result.searchQueries); // 検索クエリ一覧
   "mcpServers": {
     "guidescope": {
       "command": "npx",
-      "args": ["@cursorvers/guidescope-mcp"]
+      "args": ["@cursorversinc/guidescope-mcp"]
     }
   }
 }

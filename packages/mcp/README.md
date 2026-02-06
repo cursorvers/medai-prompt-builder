@@ -1,11 +1,11 @@
-# @cursorvers/guidescope-mcp
+# @cursorversinc/guidescope-mcp
 
 MCP server for GuideScope - Japanese medical guideline search prompt generator.
 
 ## Installation
 
 ```bash
-npm install -g @cursorvers/guidescope-mcp
+npm install -g @cursorversinc/guidescope-mcp
 ```
 
 ## Usage with Claude Desktop / Cursor
@@ -17,7 +17,7 @@ Add to your Claude Desktop or Cursor settings:
   "mcpServers": {
     "guidescope": {
       "command": "npx",
-      "args": ["@cursorvers/guidescope-mcp"]
+      "args": ["@cursorversinc/guidescope-mcp"]
     }
   }
 }

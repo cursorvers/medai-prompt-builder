@@ -182,7 +182,7 @@ describe('generatePrompt()', () => {
 
   describe('e-Gov Section', () => {
     it('should include e-Gov section when eGovCrossReference is enabled', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const settings = createTestSettings({
         output: { ...createDefaultExtendedSettings().output, eGovCrossReference: true },
       });
@@ -193,7 +193,7 @@ describe('generatePrompt()', () => {
     });
 
     it('should not include e-Gov section when eGovCrossReference is disabled', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const settings = createTestSettings({
         output: { ...createDefaultExtendedSettings().output, eGovCrossReference: false },
       });
@@ -205,7 +205,7 @@ describe('generatePrompt()', () => {
 
   describe('Proof Mode', () => {
     it('should include proof section when proofMode is true', () => {
-      const config = createTestConfig({ proofMode: true });
+      const config = createTestConfig({ difficultyLevel: 'professional', proofMode: true });
       const prompt = generatePrompt(config);
 
       expect(prompt).toContain('# 実証');
@@ -213,7 +213,7 @@ describe('generatePrompt()', () => {
     });
 
     it('should not include proof section when proofMode is false', () => {
-      const config = createTestConfig({ proofMode: false });
+      const config = createTestConfig({ difficultyLevel: 'standard', proofMode: false });
       const prompt = generatePrompt(config);
 
       expect(prompt).not.toContain('# 実証');
@@ -310,7 +310,7 @@ describe('generatePrompt()', () => {
     });
 
     it('should handle different detail levels', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
 
       // concise - should not contain detailed output fields
       const settingsConcise = createTestSettings();
@@ -328,7 +328,7 @@ describe('generatePrompt()', () => {
     });
 
     it('should respect search log setting', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
 
       // With search log
       const settingsWithLog = createTestSettings();
@@ -350,11 +350,12 @@ describe('generatePrompt()', () => {
 
   describe('Output Sections', () => {
     it('should include enabled output sections', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const settings = createTestSettings();
 
       const prompt = generatePrompt(config, settings);
 
+      expect(prompt).toContain('■ サマリー');
       expect(prompt).toContain('■ 免責');
       expect(prompt).toContain('■ 検索条件');
       expect(prompt).toContain('■ 参照データソース');
@@ -364,7 +365,7 @@ describe('generatePrompt()', () => {
     });
 
     it('should exclude disabled output sections', () => {
-      const config = createTestConfig();
+      const config = createTestConfig({ difficultyLevel: 'professional' });
       const settings = createTestSettings();
       settings.template.outputSections = settings.template.outputSections.map(section => ({
         ...section,

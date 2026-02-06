@@ -100,7 +100,24 @@ export function useConfig() {
     field: K,
     value: AppConfig[K]
   ) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
+    setConfig(prev => {
+      if (field === 'difficultyLevel' && value === 'standard') {
+        const defaults = createDefaultConfig(prev.activeTab);
+        return {
+          ...prev,
+          difficultyLevel: value,
+          threeMinistryGuidelines: defaults.threeMinistryGuidelines,
+          officialDomainPriority: defaults.officialDomainPriority,
+          siteOperator: defaults.siteOperator,
+          latestVersionPriority: defaults.latestVersionPriority,
+          pdfDirectLink: defaults.pdfDirectLink,
+          includeSearchLog: defaults.includeSearchLog,
+          eGovCrossReference: defaults.eGovCrossReference,
+          proofMode: defaults.proofMode,
+        };
+      }
+      return { ...prev, [field]: value };
+    });
   }, []);
   
   // Switch tab and update categories/keywords

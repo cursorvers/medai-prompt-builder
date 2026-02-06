@@ -28,7 +28,7 @@ echo "📦 Building packages..."
 pnpm -r build
 
 echo ""
-echo "📤 Publishing @cursorvers/guidescope..."
+echo "📤 Publishing @cursorversinc/guidescope..."
 cd packages/core
 cp ../../.npmrc.tmp .npmrc
 pnpm publish --access public --no-git-checks 2>&1 || echo "  (already published or error)"
@@ -36,7 +36,7 @@ rm -f .npmrc
 cd ../..
 
 echo ""
-echo "📤 Publishing @cursorvers/guidescope-mcp..."
+echo "📤 Publishing @cursorversinc/guidescope-mcp..."
 cd packages/mcp
 cp ../../.npmrc.tmp .npmrc
 pnpm publish --access public --no-git-checks 2>&1 || echo "  (already published or error)"
@@ -50,5 +50,5 @@ echo ""
 echo "✅ Done!"
 echo ""
 echo "Install:"
-echo "  npm install @cursorvers/guidescope"
-echo "  npx @cursorvers/guidescope-mcp"
+echo "  npm install @cursorversinc/guidescope"
+echo "  npx @cursorversinc/guidescope-mcp"

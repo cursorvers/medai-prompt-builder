@@ -926,6 +926,7 @@ export default function Home() {
                         <Switch
                           id="official"
                           checked={config.officialDomainPriority}
+                          disabled={config.difficultyLevel === 'standard'}
                           onCheckedChange={(checked) => updateField('officialDomainPriority', checked)}
                         />
                       </div>
@@ -934,6 +935,7 @@ export default function Home() {
                         <Switch
                           id="egov"
                           checked={config.eGovCrossReference}
+                          disabled={config.difficultyLevel === 'standard'}
                           onCheckedChange={(checked) => updateField('eGovCrossReference', checked)}
                         />
                       </div>
@@ -942,6 +944,7 @@ export default function Home() {
                         <Switch
                           id="proof"
                           checked={config.proofMode}
+                          disabled={config.difficultyLevel === 'standard'}
                           onCheckedChange={(checked) => updateField('proofMode', checked)}
                         />
                       </div>
