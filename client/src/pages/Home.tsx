@@ -758,13 +758,20 @@ export default function Home() {
 
           <div className="flex items-center gap-2 shrink-0">
             <Button
-              variant="secondary"
+              variant="default"
               size="default"
               onClick={() => setShowUsageGuide(!showUsageGuide)}
-              className="h-10 px-3 text-sm font-semibold"
+              className={cn(
+                "h-11 px-4 text-sm font-semibold shadow-sm",
+                "hover:shadow-md transition-shadow",
+                "ring-1 ring-primary/20",
+              )}
             >
-              <HelpCircle className="w-4 h-4 mr-1" />
+              <HelpCircle className="w-4 h-4 mr-2" />
               <span>使い方・できること</span>
+              <span className="ml-2 rounded-full bg-primary-foreground/15 px-2 py-0.5 text-[10px] font-bold tracking-wide">
+                はじめに
+              </span>
             </Button>
             <span className="text-xs text-muted-foreground hidden sm:inline">
               {config.dateToday}
@@ -832,16 +839,26 @@ export default function Home() {
 
         {/* 使い方ガイド */}
         {showUsageGuide && (
-          <div className="mb-4 p-4 bg-primary/5 border border-primary/20 rounded-lg relative">
+          <div className="mb-4 p-5 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-2 border-primary/25 rounded-xl relative shadow-sm">
             <button
               onClick={() => setShowUsageGuide(false)}
-              className="absolute top-2 right-2 p-1 hover:bg-primary/10 rounded"
+              className="absolute top-3 right-3 p-2 hover:bg-primary/10 rounded-lg"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="font-semibold text-sm mb-2 text-primary">使い方・できること</h3>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <HelpCircle className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-bold text-base text-foreground">使い方・できること</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  「抵触チェック」と「責任分界」を一次資料ベースで最短整理。契約書/仕様書の監査にも使えます。
+                </p>
+              </div>
+            </div>
 
-            <div className="text-sm text-muted-foreground space-y-3">
+            <div className="mt-4 text-sm text-muted-foreground space-y-4">
               <div>
                 <p className="font-medium text-foreground">何に使える？</p>
                 <ul className="mt-1 space-y-1.5">
