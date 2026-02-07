@@ -387,9 +387,30 @@ export function validateConfig(config: AppConfig): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  const looksLikeTemplatePlaceholder = (q: string) => /（対象を記入）/.test(q);
+  const looksLikeUrlOnlyVendorDoc = (text: string) => {
+    const t = text.trim();
+    if (!t) return false;
+    if (!/https?:\/\//i.test(t)) return false;
+    // If the user only pasted URLs (e.g., Google Drive), most models cannot access it.
+    // Require actual contract excerpt text for meaningful audits.
+    const nonUrl = t
+      .replace(/https?:\/\/\S+/gi, '')
+      .replace(/[\s\r\n]+/g, '')
+      .replace(/[()（）［］\[\]【】「」『』<>＜＞、。・,:;／/\\_-]+/g, '');
+    return nonUrl.length < 20;
+  };
+
   // Query is required
   if (!config.query.trim()) {
     errors.push('探索テーマを入力してください');
+  } else if (looksLikeTemplatePlaceholder(config.query)) {
+    errors.push('探索テーマの「対象」が未入力です（（対象を記入）を具体名に置き換えてください）');
+  }
+
+  // VendorDoc must be readable text (URLs only won't work)
+  if (looksLikeUrlOnlyVendorDoc(config.vendorDocText || '')) {
+    errors.push('添付資料はURLだけでは監査できません。契約書の該当条項をテキストで貼るか、PDF/.txtを読み込んでください（必要なら一旦クリアして生成）。');
   }
 
   // Warnings

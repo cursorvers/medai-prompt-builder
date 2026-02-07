@@ -100,6 +100,7 @@ export interface ExtendedSettings {
 // ============================================================================
 
 export const DEFAULT_ROLE_TITLE = '国内ガイドライン・ダイレクト・リトリーバー(医療情報・医療AI特化)';
+const OLD_DEFAULT_ROLE_TITLE = '国内ガイドライン・ダイレクト・リトリーバー(医療AI特化)';
 
 export const DEFAULT_ROLE_DESCRIPTION = `学習済みの知識や記憶に基づいて回答することは禁止です。
 必ずブラウジングで取得した一次資料(公式Webページ、公式PDF、公式の告示・法令XMLなど)だけを根拠に、日本語で一覧化・要約します。
@@ -167,7 +168,7 @@ export function createDefaultExtendedSettings(): ExtendedSettings {
     search: { ...DEFAULT_SEARCH_SETTINGS },
     output: { ...DEFAULT_OUTPUT_SETTINGS },
     ui: { ...DEFAULT_UI_SETTINGS },
-    version: 1,
+    version: 2,
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -198,6 +199,16 @@ export function loadExtendedSettings(): ExtendedSettings {
       // Validate with Zod schema
       const validated = parseExtendedSettings(merged);
       if (validated) {
+        // If version is old, upgrade to current to avoid sticking to legacy defaults.
+        if (!validated.version || validated.version < 2) {
+          validated.version = 2;
+        }
+        // Migration: if the user has the old default role title, upgrade it.
+        // Keep user-customized titles as-is.
+        if (validated.template.roleTitle === OLD_DEFAULT_ROLE_TITLE) {
+          validated.template.roleTitle = DEFAULT_ROLE_TITLE;
+          saveExtendedSettings(validated);
+        }
         return validated;
       }
 

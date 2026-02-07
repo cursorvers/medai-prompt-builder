@@ -136,25 +136,27 @@ function ComingSoonOverlay({
 type ExecuteButtonBarProps = {
   onExecute: () => void;
   disabled: boolean;
+  disabledReason?: string;
+  isLoading?: boolean;
 };
 
-function ExecuteButtonBar({ onExecute, disabled }: ExecuteButtonBarProps) {
+function ExecuteButtonBar({ onExecute, disabled, disabledReason, isLoading }: ExecuteButtonBarProps) {
   return (
     <>
       <Button
         size="lg"
         className="w-full text-base font-semibold"
         onClick={onExecute}
-        disabled={disabled}
+        disabled={disabled || !!isLoading}
       >
         <Sparkles className="w-5 h-5 mr-2" />
-        プロンプトを生成
+        {isLoading ? '読み込み中…' : 'プロンプトを生成'}
       </Button>
 
-      {disabled && (
+      {(disabled || !!disabledReason) && (
         <p className="text-xs text-destructive mt-2 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" />
-          探索テーマを入力してください
+          {disabledReason || '入力内容を確認してください'}
         </p>
       )}
     </>
@@ -164,6 +166,7 @@ function ExecuteButtonBar({ onExecute, disabled }: ExecuteButtonBarProps) {
 export default function Home() {
   const {
     config,
+    validation,
     resetConfig,
     switchTab,
     updateField,
@@ -207,7 +210,8 @@ export default function Home() {
     }
     return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   });
-  const isExecuteDisabled = !config.query.trim();
+  const disabledReason = validation.errors[0];
+  const isExecuteDisabled = vendorDocLoading || !validation.isValid;
 
   const importVendorDocFromFile = useCallback(async (file: File) => {
     const lowerName = file.name.toLowerCase();
@@ -487,6 +491,18 @@ export default function Home() {
 
   // 実行ボタン（Phase 4）
   const handleExecute = useCallback(() => {
+    if (vendorDocLoading) {
+      toast.info('添付資料を読み込み中です', {
+        description: '読み込みが終わってから生成してください',
+      });
+      return;
+    }
+
+    if (!validation.isValid) {
+      toast.error(validation.errors[0] || '入力内容を確認してください');
+      return;
+    }
+
     if (!config.query.trim()) {
       toast.error('探索テーマを入力してください');
       return;
@@ -539,7 +555,7 @@ export default function Home() {
       setShowIntroModal(true);
       setHasExecutedBefore(true);
     }
-  }, [config, hasExecutedBefore, hasPrivacyWarning, privacyWarnings, currentPreset, addAuditEntry]);
+  }, [config, hasExecutedBefore, hasPrivacyWarning, privacyWarnings, currentPreset, addAuditEntry, validation, vendorDocLoading]);
 
   const handleReset = useCallback(() => {
     setGenerated(null);
@@ -1324,7 +1340,12 @@ export default function Home() {
                 </div>
 
                 <div className="hidden lg:block">
-                  <ExecuteButtonBar onExecute={handleExecute} disabled={isExecuteDisabled} />
+                  <ExecuteButtonBar
+                    onExecute={handleExecute}
+                    disabled={isExecuteDisabled}
+                    disabledReason={disabledReason}
+                    isLoading={vendorDocLoading}
+                  />
                 </div>
               </div>
             </div>
@@ -1509,7 +1530,12 @@ export default function Home() {
         )}
       >
         <div className="container py-3">
-          <ExecuteButtonBar onExecute={handleExecute} disabled={isExecuteDisabled} />
+          <ExecuteButtonBar
+            onExecute={handleExecute}
+            disabled={isExecuteDisabled}
+            disabledReason={disabledReason}
+            isLoading={vendorDocLoading}
+          />
         </div>
       </div>
 

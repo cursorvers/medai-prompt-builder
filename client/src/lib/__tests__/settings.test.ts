@@ -84,9 +84,9 @@ describe('settings.ts', () => {
       expect(settings.ui.animationsEnabled).toBe(true);
     });
 
-    it('should return version 1', () => {
+    it('should return version 2', () => {
       const settings = createDefaultExtendedSettings();
-      expect(settings.version).toBe(1);
+      expect(settings.version).toBe(2);
     });
 
     it('should set lastUpdated to current ISO string', () => {
@@ -190,7 +190,24 @@ describe('settings.ts', () => {
 
       const settings = loadExtendedSettings();
 
-      expect(settings.version).toBe(1);
+      expect(settings.version).toBe(2);
+    });
+
+    it('should migrate old default role title to the new default', () => {
+      localStorage.setItem(
+        'medai_extended_settings_v1',
+        JSON.stringify({
+          version: 1,
+          template: { roleTitle: '国内ガイドライン・ダイレクト・リトリーバー(医療AI特化)' },
+          search: {},
+          output: {},
+          ui: {},
+        })
+      );
+
+      const settings = loadExtendedSettings();
+      expect(settings.template.roleTitle).toBe(DEFAULT_ROLE_TITLE);
+      expect(settings.version).toBe(2);
     });
 
     it('should set default lastUpdated when it is missing', () => {
