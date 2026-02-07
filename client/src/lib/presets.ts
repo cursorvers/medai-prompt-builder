@@ -259,6 +259,71 @@ export const TAB_PRESETS: TabPreset[] = [
 ];
 
 // ============================================================================
+// Normalization
+// ============================================================================
+
+const STANDARD_TAB_ID = 'clinical-operation';
+const STANDARD_SCOPE = ['医療AI', '医療情報セキュリティ', '医療データ利活用'] as const;
+const STANDARD_AUDIENCES = ['医療機関'] as const;
+
+function hasAllNamedItems(
+  items: { name: string }[] | undefined,
+  requiredNames: string[]
+): boolean {
+  if (!items || items.length === 0) return false;
+  const set = new Set(items.map(i => i.name));
+  return requiredNames.every(n => set.has(n));
+}
+
+/**
+ * Normalize config to prevent "UI says Standard is fixed" while persisted/URL-imported
+ * configs still contain other presets/scopes/audiences. This keeps behavior stable.
+ */
+export function normalizeConfig(config: AppConfig): AppConfig {
+  const safePriorityDomains =
+    Array.isArray(config.priorityDomains) && config.priorityDomains.length > 0
+      ? config.priorityDomains
+      : [...DEFAULT_PRIORITY_DOMAINS];
+
+  // Standard: force a clinician-friendly profile.
+  if (config.difficultyLevel === 'standard') {
+    const base = createDefaultConfig(STANDARD_TAB_ID);
+    return {
+      ...base,
+      dateToday: config.dateToday || base.dateToday,
+      query: config.query || '',
+      vendorDocText: config.vendorDocText || '',
+      priorityDomains: safePriorityDomains,
+      customKeywords: Array.isArray(config.customKeywords) ? config.customKeywords : [],
+      excludeKeywords: Array.isArray(config.excludeKeywords) ? config.excludeKeywords : [],
+    };
+  }
+
+  // Professional: keep user's choices, but ensure tab/category/keyword state is coherent.
+  const preset =
+    TAB_PRESETS.find(p => p.id === config.activeTab) ||
+    TAB_PRESETS.find(p => p.id === STANDARD_TAB_ID) ||
+    TAB_PRESETS[0];
+
+  const categoriesOk = hasAllNamedItems(config.categories, preset.categories);
+  const keywordChipsOk = hasAllNamedItems(config.keywordChips, preset.keywordChips);
+
+  return {
+    ...config,
+    activeTab: preset.id,
+    priorityDomains: safePriorityDomains,
+    audiences: Array.isArray(config.audiences) && config.audiences.length > 0 ? config.audiences : [...STANDARD_AUDIENCES],
+    scope: Array.isArray(config.scope) && config.scope.length > 0 ? config.scope : [...STANDARD_SCOPE],
+    categories: categoriesOk
+      ? config.categories
+      : preset.categories.map(name => ({ name, enabled: true })),
+    keywordChips: keywordChipsOk
+      ? config.keywordChips
+      : preset.keywordChips.map(name => ({ name, enabled: true })),
+  };
+}
+
+// ============================================================================
 // Default Config Factory
 // ============================================================================
 
@@ -347,7 +412,7 @@ export function parseConfigJSON(json: string): AppConfig | null {
   try {
     const parsed = JSON.parse(json);
     const validated = parseAppConfig(parsed);
-    return validated;
+    return validated ? normalizeConfig(validated) : null;
   } catch (e) {
     console.error('Failed to parse config JSON:', e);
     return null;

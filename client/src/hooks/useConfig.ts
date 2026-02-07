@@ -18,6 +18,7 @@ import {
   TAB_PRESETS,
   createDefaultConfig,
   getDifficultyPreset,
+  normalizeConfig,
   validateConfig,
   parseConfigJSON,
   type ValidationResult,
@@ -91,7 +92,7 @@ export function useConfig() {
       if (validated) {
         // Clear the URL parameter after loading
         window.history.replaceState({}, '', window.location.pathname);
-        return validated;
+        return normalizeConfig(validated);
       }
       console.warn('URL config validation failed, trying localStorage');
     }
@@ -104,7 +105,7 @@ export function useConfig() {
         // Validate with Zod schema
         const validated = parseAppConfig(parsed);
         if (validated) {
-          return validated;
+          return normalizeConfig(validated);
         }
         console.warn('LocalStorage config validation failed, using defaults');
       }
@@ -297,7 +298,7 @@ export function useConfig() {
   const importConfig = useCallback((json: string): boolean => {
     const validated = parseConfigJSON(json);
     if (validated) {
-      setConfig(validated);
+      setConfig(normalizeConfig(validated));
       return true;
     }
     return false;
