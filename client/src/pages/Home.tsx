@@ -156,6 +156,12 @@ export default function Home() {
   const [vendorDocRelevantOnly, setVendorDocRelevantOnly] = useState(true);
   const [vendorDocLoading, setVendorDocLoading] = useState(false);
   const [vendorDocProgress, setVendorDocProgress] = useState<{ page: number; totalPagesToRead: number } | null>(null);
+  const [vendorDocNotice, setVendorDocNotice] = useState<null | {
+    type: 'info' | 'warning' | 'error';
+    title: string;
+    message: string;
+    planB: string[];
+  }>(null);
   const [sectionsOpen, setSectionsOpen] = useState({
     scope: true,
     audience: true,
@@ -183,9 +189,21 @@ export default function Home() {
     const isPdf = lowerName.endsWith('.pdf') || file.type === 'application/pdf';
     const isText = lowerName.endsWith('.txt') || file.type.startsWith('text/');
 
+    const planB = [
+      'PDF内の文字を選択できる場合: そのままコピーして貼り付け',
+      '画像PDFの場合: 端末のOCR（macOS プレビュー/写真のテキスト認識等）で抽出して貼り付け',
+      'ベンダーに「テキスト版（.txt）」または該当条項のテキスト提供を依頼',
+    ];
+
     if (!isPdf && !isText) {
       toast.error('対応していないファイル形式です', {
-        description: '.pdf または .txt を選択してください',
+        description: `Plan B: ${planB.join(' / ')}`,
+      });
+      setVendorDocNotice({
+        type: 'error',
+        title: '対応していないファイル形式です',
+        message: 'この欄は .pdf または .txt のみ対応しています。',
+        planB,
       });
       return;
     }
@@ -196,12 +214,19 @@ export default function Home() {
       toast.success('添付資料を読み込みました', {
         description: `${file.name} を取り込みました`,
       });
+      setVendorDocNotice({
+        type: 'info',
+        title: '添付資料を読み込みました',
+        message: `${file.name} を取り込みました。`,
+        planB: [],
+      });
       return;
     }
 
     // PDF: extract text locally (no upload).
     setVendorDocLoading(true);
     setVendorDocProgress({ page: 0, totalPagesToRead: 0 });
+    setVendorDocNotice(null);
     try {
       const extracted = await extractTextFromPdfFile(file, {
         maxPages: 40,
@@ -212,7 +237,13 @@ export default function Home() {
       const baseText = extracted.text.trim();
       if (!baseText || baseText.length < 200) {
         toast.warning('PDFから十分なテキストを抽出できませんでした', {
-          description: '画像PDFの可能性があります。契約書からコピーするか、OCR後のテキストを貼り付けてください。',
+          description: `画像PDFの可能性があります。Plan B: ${planB.join(' / ')}`,
+        });
+        setVendorDocNotice({
+          type: 'warning',
+          title: 'PDFから十分なテキストを抽出できませんでした',
+          message: '画像スキャンPDFなど、PDF内に文字情報が含まれていない可能性があります。',
+          planB,
         });
         return;
       }
@@ -228,9 +259,21 @@ export default function Home() {
       toast.success('PDFからテキストを抽出しました', {
         description: `${Math.min(extracted.readPages, extracted.totalPages)}ページ分を解析しました${vendorDocRelevantOnly ? '（関連条項のみ抽出）' : ''}`,
       });
+      setVendorDocNotice({
+        type: 'info',
+        title: 'PDFからテキストを抽出しました',
+        message: `${Math.min(extracted.readPages, extracted.totalPages)}ページ分を解析しました${vendorDocRelevantOnly ? '（関連条項のみ抽出）' : ''}。`,
+        planB: [],
+      });
     } catch (err) {
       toast.error('PDFの読み込みに失敗しました', {
-        description: err instanceof Error ? err.message : '不明なエラー',
+        description: `Plan B: ${planB.join(' / ')}`,
+      });
+      setVendorDocNotice({
+        type: 'error',
+        title: 'PDFの読み込みに失敗しました',
+        message: err instanceof Error ? err.message : '不明なエラー',
+        planB,
       });
     } finally {
       setVendorDocLoading(false);
@@ -795,6 +838,30 @@ export default function Home() {
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     PDFを解析中: {vendorDocProgress.page}/{vendorDocProgress.totalPagesToRead || '?'}ページ
                   </p>
+                </div>
+              )}
+
+              {vendorDocNotice && (
+                <div
+                  className={cn(
+                    'mt-2 rounded-lg border p-2 text-xs',
+                    vendorDocNotice.type === 'info' && 'bg-slate-50 border-slate-200 text-slate-700',
+                    vendorDocNotice.type === 'warning' && 'bg-amber-50 border-amber-200 text-amber-800',
+                    vendorDocNotice.type === 'error' && 'bg-red-50 border-red-200 text-red-800',
+                  )}
+                >
+                  <p className="font-medium">{vendorDocNotice.title}</p>
+                  <p className="mt-1 opacity-90">{vendorDocNotice.message}</p>
+                  {vendorDocNotice.planB.length > 0 && (
+                    <>
+                      <p className="mt-2 font-medium">Plan B（代替手段）</p>
+                      <ol className="mt-1 list-decimal list-inside space-y-0.5">
+                        {vendorDocNotice.planB.map((s) => (
+                          <li key={s}>{s}</li>
+                        ))}
+                      </ol>
+                    </>
+                  )}
                 </div>
               )}
 
