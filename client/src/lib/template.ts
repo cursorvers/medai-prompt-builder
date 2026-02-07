@@ -6,9 +6,10 @@
  */
 
 import type { AppConfig, DifficultyLevel } from './presets';
-import { getDifficultyPreset } from './presets';
+import { createDefaultConfig, getDifficultyPreset } from './presets';
 import type { ExtendedSettings } from './settings';
 import { loadExtendedSettings, DEFAULT_ROLE_TITLE, DEFAULT_ROLE_DESCRIPTION } from './settings';
+import { parseAppConfig } from './schemas';
 
 // ============================================================================
 // Template Generation Functions
@@ -99,6 +100,8 @@ ${eGovVariables}`;
 
 2. 公式優先
    ・根拠は必ず公式一次資料(公式Web/公式PDF)に限定する
+   ・検索エンジンの結果ページ（例: google.com/search, bing.com/search）を根拠にしない
+   ・必ず公式ページ/PDFを開いてから引用する（検索結果URLを貼らない）
    ・同名文書が複数版ある場合、${search.priorityRule === 'revised_date' ? '改定日が最も新しい最新版' : search.priorityRule === 'published_date' ? '公開日が最も新しい版' : '関連度が最も高い版'}を優先する
    ・個人情報/同意/匿名化/二次利用が論点に含まれる場合は、個人情報保護法(APPI)と個人情報保護委員会のガイドラインも一次資料で確認する
    ・優先ドメイン:
@@ -772,11 +775,18 @@ export function configToJSON(config: AppConfig): string {
 export function parseConfigJSON(json: string): AppConfig | null {
   try {
     const parsed = JSON.parse(json);
-    // Basic validation
-    if (typeof parsed === 'object' && parsed !== null && 'activeTab' in parsed) {
-      return parsed as AppConfig;
-    }
-    return null;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const maybe = parsed as Record<string, unknown>;
+    if (typeof maybe.activeTab !== 'string' || !maybe.activeTab.trim()) return null;
+
+    // Fill missing fields with safe defaults, then validate.
+    // Note: do NOT normalize here; normalization is applied at app state level.
+    const merged = {
+      ...createDefaultConfig(maybe.activeTab),
+      ...maybe,
+    };
+    const validated = parseAppConfig(merged);
+    return validated ? (validated as AppConfig) : null;
   } catch {
     return null;
   }

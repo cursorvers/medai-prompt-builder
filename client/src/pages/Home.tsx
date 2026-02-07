@@ -236,8 +236,9 @@ export default function Home() {
 
       const q = config.query || '';
       if (!q.trim()) {
-        updateField('query', buildQueryFromTemplate('compliance_check', DEFAULT_VENDOR_SUBJECT));
-        setQueryTemplateId('compliance_check');
+        const templateToUse: QueryTemplateId = queryTemplateId === 'free' ? 'compliance_check' : queryTemplateId;
+        updateField('query', buildQueryFromTemplate(templateToUse, DEFAULT_VENDOR_SUBJECT));
+        setQueryTemplateId(templateToUse);
         toast.info('探索テーマを自動入力しました', {
           description: '添付資料があるため、まずは契約/仕様の抵触チェックをデフォルトにしました（後から編集できます）。',
         });
@@ -254,7 +255,7 @@ export default function Home() {
 
       return false;
     },
-    [config.query, updateField]
+    [config.query, queryTemplateId, updateField]
   );
 
   const importVendorDocFromFile = useCallback(async (file: File) => {
@@ -300,11 +301,10 @@ export default function Home() {
     }
 
     // PDF: extract text locally (no upload).
+    const prevVendorDocText = config.vendorDocText;
     setVendorDocLoading(true);
     setVendorDocProgress({ page: 0, totalPagesToRead: 0 });
     setVendorDocNotice(null);
-    // Replace semantics: when importing a new file, do not keep old excerpts around.
-    updateField('vendorDocText', '');
     try {
       const extracted = await extractTextFromPdfFile(file, {
         maxPages: 40,
@@ -317,21 +317,14 @@ export default function Home() {
         toast.warning('PDFから十分なテキストを抽出できませんでした', {
           description: `画像PDFの可能性があります。Plan B: ${planB.join(' / ')}`,
         });
-        updateField('vendorDocText', '');
-        setVendorDocImport({
-          kind: 'pdf',
-          fileName: file.name,
-          totalPages: extracted.totalPages,
-          readPages: extracted.readPages,
-          partialByPages: extracted.totalPages > extracted.readPages,
-          truncated: extracted.truncated,
-          relevantOnly: vendorDocRelevantOnly,
-        });
+        // Keep previous text (avoid accidental data loss). Import metadata is cleared to prevent mismatch.
+        updateField('vendorDocText', prevVendorDocText);
+        setVendorDocImport(null);
         setVendorDocCoverageAck(false);
         setVendorDocNotice({
           type: 'warning',
           title: 'PDFから十分なテキストを抽出できませんでした',
-          message: '画像スキャンPDFなど、PDF内に文字情報が含まれていない可能性があります。',
+          message: '画像スキャンPDFなど、PDF内に文字情報が含まれていない可能性があります。添付欄の内容は変更していません。',
           planB,
         });
         return;
@@ -356,7 +349,8 @@ export default function Home() {
         readPages: extracted.readPages,
         partialByPages: extracted.totalPages > extracted.readPages,
         truncated: extracted.truncated,
-        relevantOnly: vendorDocRelevantOnly,
+        // If no snippet hits, we fell back to full text. Reflect that in UI.
+        relevantOnly: snippetEmpty ? false : vendorDocRelevantOnly,
         snippetHitCount: snippetEmpty ? 0 : snippet.hitCount,
         snippetTruncated: snippet.truncated,
         capped: wasCapped,
@@ -391,24 +385,21 @@ export default function Home() {
       toast.error('PDFの読み込みに失敗しました', {
         description: `Plan B: ${planB.join(' / ')}`,
       });
-      updateField('vendorDocText', '');
-      setVendorDocImport({
-        kind: 'pdf',
-        fileName: file.name,
-        relevantOnly: vendorDocRelevantOnly,
-      });
+      // Keep previous text (avoid accidental data loss). Import metadata is cleared to prevent mismatch.
+      updateField('vendorDocText', prevVendorDocText);
+      setVendorDocImport(null);
       setVendorDocCoverageAck(false);
       setVendorDocNotice({
         type: 'error',
         title: 'PDFの読み込みに失敗しました',
-        message: err instanceof Error ? err.message : '不明なエラー',
+        message: `${err instanceof Error ? err.message : '不明なエラー'}（添付欄の内容は変更していません）`,
         planB,
       });
     } finally {
       setVendorDocLoading(false);
       setVendorDocProgress(null);
     }
-  }, [updateField, vendorDocRelevantOnly, maybeAutofillQueryForVendorDoc]);
+  }, [config.vendorDocText, updateField, vendorDocRelevantOnly, maybeAutofillQueryForVendorDoc]);
 
   const handleVendorDocDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -456,6 +447,12 @@ export default function Home() {
   }, [config.query]);
 
   const hasPrivacyWarning = privacyWarnings.length > 0;
+
+  const vendorDocPrivacyWarnings = useMemo(() => {
+    return detectPrivacyIssues(config.vendorDocText || '');
+  }, [config.vendorDocText]);
+
+  const hasVendorDocPrivacyWarning = vendorDocPrivacyWarnings.length > 0;
 
   const hasVendorDocAIKeywords = useMemo(() => {
     const text = config.vendorDocText || '';
@@ -597,11 +594,16 @@ export default function Home() {
       !!config.vendorDocText.trim() &&
       (!config.query.trim() || /（対象を記入）/.test(config.query))
     ) {
+      const templateToUse: QueryTemplateId = !config.query.trim()
+        ? (queryTemplateId === 'free' ? 'compliance_check' : queryTemplateId)
+        : queryTemplateId;
       const filled = !config.query.trim()
-        ? buildQueryFromTemplate('compliance_check', DEFAULT_VENDOR_SUBJECT)
+        ? buildQueryFromTemplate(templateToUse, DEFAULT_VENDOR_SUBJECT)
         : config.query.replace(/（対象を記入）/g, DEFAULT_VENDOR_SUBJECT);
       updateField('query', filled);
-      setQueryTemplateId('compliance_check');
+      if (templateToUse !== 'free') {
+        setQueryTemplateId(templateToUse);
+      }
       toast.info('探索テーマを自動入力しました', {
         description: 'もう一度「プロンプトを生成」を押してください（必要ならテーマを編集できます）。',
       });
@@ -1387,6 +1389,21 @@ export default function Home() {
                     placeholder="例: 第X条（データの取扱い）... / 保存期間... / 学習利用の有無... / 再委託... / 監査権限..."
                     className="min-h-32 lg:min-h-56 text-base leading-relaxed"
                   />
+
+                  {hasVendorDocPrivacyWarning && (
+                    <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs flex items-start gap-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                      <div className="text-amber-700 dark:text-amber-400">
+                        <p className="font-medium mb-0.5">添付資料に個人情報が含まれている可能性</p>
+                        <p className="text-amber-600 dark:text-amber-500">
+                          {getPrivacyWarningMessage(vendorDocPrivacyWarnings)}
+                        </p>
+                        <p className="text-amber-600 dark:text-amber-500 mt-1">
+                          LLMに貼り付ける前に、氏名/電話/住所/口座番号などの伏字を推奨します。
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {vendorDocImport?.kind === 'pdf' && (
                     <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 p-2 text-xs text-muted-foreground space-y-1">
