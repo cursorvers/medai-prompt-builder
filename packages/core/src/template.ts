@@ -114,8 +114,8 @@ export function createConfig(options: GeneratePromptOptions): AppConfig {
   return {
     dateToday: date,
     query: options.query,
-    scope: options.scope || ['医療AI'],
-    audiences: options.audiences || ['医療機関', '開発企業'],
+    scope: options.scope || ['医療AI', '医療情報セキュリティ', '医療データ利活用'],
+    audiences: options.audiences || ['医療機関'],
     difficultyLevel: difficulty,
     vendorDocText: '',
 
@@ -125,7 +125,8 @@ export function createConfig(options: GeneratePromptOptions): AppConfig {
     latestVersionPriority: true,
     pdfDirectLink: true,
     includeSearchLog: difficulty === 'professional',
-    eGovCrossReference: difficulty === 'professional',
+    // Keep OFF by default. Enable when explicitly needed for law-article excerpts.
+    eGovCrossReference: false,
     proofMode: difficulty === 'professional',
 
     categories: preset.categories.map(name => ({ name, enabled: true })),

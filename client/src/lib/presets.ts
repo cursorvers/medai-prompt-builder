@@ -66,14 +66,15 @@ export const DIFFICULTY_PRESETS: DifficultyPreset[] = [
     icon: 'zap',
     features: [
       '冒頭サマリー',
-      'e-Gov法令参照の自動取得',
+      'e-Gov法令参照（必要時）',
       '関連文書の再帰的探索',
       '詳細な条文抜粋',
       '詳細検索（20件まで）',
     ],
     settings: {
       detailLevel: 'detailed',
-      eGovCrossReference: true,
+      // Keep OFF by default. Turn on when you explicitly need legal article excerpts.
+      eGovCrossReference: false,
       includeLawExcerpts: true,
       recursiveDepth: 2,
       maxResults: 20,
@@ -270,7 +271,8 @@ export function createDefaultConfig(tabId: string = 'clinical-operation'): AppCo
   return {
     dateToday: dateStr,
     query: '',
-    scope: ['医療情報セキュリティ', '医療AI'],
+    // Standard is tuned for front-line clinicians: focus on operational safety and data handling.
+    scope: ['医療AI', '医療情報セキュリティ', '医療データ利活用'],
     audiences: ['医療機関'],
     difficultyLevel: 'standard',
     vendorDocText: '',

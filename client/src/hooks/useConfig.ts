@@ -138,22 +138,20 @@ export function useConfig() {
     }
     setConfig(prev => {
       if (field === 'difficultyLevel' && value === 'standard') {
-        const defaults = createDefaultConfig(prev.activeTab);
+        // Standard is meant to be "light and safe" for general clinicians.
+        // Keep user's inputs, but reset defaults to a clinical-operation profile.
+        const defaults = createDefaultConfig('clinical-operation');
         return {
-          ...prev,
-          difficultyLevel: value,
-          threeMinistryGuidelines: defaults.threeMinistryGuidelines,
-          officialDomainPriority: defaults.officialDomainPriority,
-          siteOperator: defaults.siteOperator,
-          latestVersionPriority: defaults.latestVersionPriority,
-          pdfDirectLink: defaults.pdfDirectLink,
-          includeSearchLog: defaults.includeSearchLog,
-          eGovCrossReference: defaults.eGovCrossReference,
-          proofMode: defaults.proofMode,
+          ...defaults,
+          dateToday: prev.dateToday,
+          query: prev.query,
+          vendorDocText: prev.vendorDocText,
+          customKeywords: prev.customKeywords,
+          excludeKeywords: prev.excludeKeywords,
         };
       }
       if (field === 'difficultyLevel' && value === 'professional') {
-        // Professional defaults: everything on, user can opt out.
+        // Professional defaults: thorough, but e-Gov is optional (off by default).
         return {
           ...prev,
           difficultyLevel: value,
@@ -163,7 +161,7 @@ export function useConfig() {
           latestVersionPriority: true,
           pdfDirectLink: true,
           includeSearchLog: true,
-          eGovCrossReference: true,
+          eGovCrossReference: false,
           proofMode: true,
         };
       }

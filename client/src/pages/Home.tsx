@@ -396,12 +396,20 @@ export default function Home() {
     };
   }, [isMobile]);
 
-  // 全プリセット
-  const allPresets = useMemo(() => TAB_PRESETS, []);
+  const isStandardDifficulty = config.difficultyLevel === 'standard';
+
+  // 全プリセット（スタンダードは臨床運用寄りに固定して迷いを減らす）
+  const allPresets = useMemo(() => {
+    if (isStandardDifficulty) {
+      return TAB_PRESETS.filter(p => p.id === 'clinical-operation');
+    }
+    return TAB_PRESETS;
+  }, [isStandardDifficulty]);
 
   // 現在のプリセット
   const currentPreset = useMemo(() => {
-    return allPresets.find(p => p.id === config.activeTab) || TAB_PRESETS[0];
+    const fallback = TAB_PRESETS.find(p => p.id === 'clinical-operation') || TAB_PRESETS[0];
+    return allPresets.find(p => p.id === config.activeTab) || fallback;
   }, [allPresets, config.activeTab]);
 
   // プロンプト生成
@@ -709,7 +717,7 @@ export default function Home() {
             <h3 className="font-semibold text-sm mb-2 text-primary">使い方</h3>
             <ol className="text-sm space-y-1.5 text-muted-foreground">
               <li><span className="font-medium text-foreground">1.</span> 探索テーマを入力（例：医療AIの臨床導入における安全管理）</li>
-              <li><span className="font-medium text-foreground">2.</span> 目的プリセットを選択（医療機器開発、臨床運用、研究倫理、生成AI）</li>
+              <li><span className="font-medium text-foreground">2.</span> 目的プリセットを選択（スタンダードは臨床運用寄りに固定）</li>
               <li><span className="font-medium text-foreground">3.</span> 「コピー」ボタンでプロンプトをコピー</li>
               <li><span className="font-medium text-foreground">4.</span> お好みのLLM（Gemini、ChatGPT、Claude等）に貼り付けて実行</li>
             </ol>
@@ -852,20 +860,22 @@ export default function Home() {
               </div>
 
               <p className="text-[10px] text-muted-foreground mb-2">
-                プリセットを選択すると、カテゴリ例と追加検索語が自動的に設定されます
+                {isStandardDifficulty
+                  ? 'スタンダードは「臨床運用寄り」に固定（迷いを減らすため）'
+                  : 'プリセットを選択すると、カテゴリ例と追加検索語が自動的に設定されます'}
               </p>
 
               <div className="flex flex-wrap gap-1.5">
                 {allPresets.map(preset => (
                   <button
                     key={preset.id}
-                    onClick={() => handlePresetSelect(preset.id)}
+                    onClick={() => !isStandardDifficulty && handlePresetSelect(preset.id)}
                     className={cn(
                       'px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-all',
                       config.activeTab === preset.id
                         ? 'bg-primary text-primary-foreground border-primary shadow-md'
                         : 'bg-background border-border hover:border-primary/50 hover:bg-primary/5'
-                    )}
+                    , isStandardDifficulty && 'cursor-default opacity-90')}
                   >
                     {preset.name}
                   </button>
@@ -1054,6 +1064,9 @@ export default function Home() {
                           onCheckedChange={(checked) => updateField('eGovCrossReference', checked)}
                         />
                       </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        目安: 法令の条文まで当たりたい時だけON（通常はOFFで十分）。
+                      </p>
                       <div className="flex items-center justify-between">
                         <Label htmlFor="proof" className="text-sm">実証モード</Label>
                         <Switch
@@ -1063,6 +1076,9 @@ export default function Home() {
                           onCheckedChange={(checked) => updateField('proofMode', checked)}
                         />
                       </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        ONにすると、最後に「実証結果（達成事項/制約事項）」を必ず出させて、再現性と未確認点を明確にします。
+                      </p>
                     </div>
                   </CollapsibleContent>
                 </div>
