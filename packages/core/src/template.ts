@@ -89,7 +89,8 @@ function filterOutputSectionsForDifficulty(
   if (difficultyLevel !== 'standard') return sections;
 
   // Standard: keep output lightweight and distinct.
-  const allowed = new Set(['guideline_list', 'three_ministry']);
+  // Still answer the user's question concretely, but keep the rest lean.
+  const allowed = new Set(['specific_case', 'guideline_list', 'three_ministry']);
   return sections.map((s) => ({
     ...s,
     enabled: s.enabled && allowed.has(s.id),
@@ -307,7 +308,8 @@ EGOV_SECTION_END`;
     ? `# Task (Standard)
 1. [[QUERY]] について、公式一次資料を中心に${search.maxResults}件まで候補を確認する
 2. 重要な一次資料を3〜8件に絞り、要点だけを抽出する（最新版かどうかは明記）
-3. 出力は「サマリー」「引用文献」「ガイドライン一覧」「3省2ガイドライン（要点）」に限定し、短く整理する`
+3. 出力は「サマリー」「引用文献」「個別ケースへの回答（簡易）」「ガイドライン一覧」「3省2ガイドライン（要点）」に限定し、短く整理する
+4. VendorDoc が (なし) でない場合、契約/仕様の条項を監査観点（保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応）で確認し、「記載あり/なし/不明」を短く示す（未記載は確認事項として列挙する）`
     : `# Task
 
 ## Phase 1: 探索計画の確定
@@ -329,7 +331,10 @@ ${lawCrossRefPhase}
 
 ## Phase 5: 個別ケース分析
 1. $Query$ を分解し、直接適用可能な記載を抽出する
-2. 該当箇所は原文を引用する`;
+2. 該当箇所は原文を引用する
+3. VendorDoc が (なし) でない場合（契約書/仕様書監査）:
+   ・監査観点（保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応）ごとに、契約側の記載（引用）と、対応するガイドライン要求（引用番号付き）を対比して整理する
+   ・契約側に明示がない項目は「未記載」として、必要な確認質問を具体的に列挙する`;
 
   // Build output format section
   const enabledSections = filterOutputSectionsForDifficulty(template.outputSections, difficultyLevel)
@@ -350,6 +355,7 @@ ${lawCrossRefPhase}
 結論: （1行で。違反/非違反/判断不能(要確認)のいずれかを明示）
 ・[[QUERY]]について、まず結論を明記し、次に重要ポイントを3〜5点で整理する
 ・判断不能(要確認)の場合は、足りない前提条件（例: 外部送信の有無、保存の有無、学習への利用、ログ保持、委託先、患者説明）を3〜6点で列挙する
+・VendorDoc が (なし) でない場合、契約/仕様の監査観点（保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応）について「記載あり/なし/不明」を短く示し、未記載は確認事項として列挙する
 ・各ポイントに「文書名 第X章 X.X節 pXX」を付記する
 ・一次資料未確認の事項は明確に「未確認」とする
 
@@ -419,7 +425,19 @@ ${output.detailLevel === 'concise' ? `・タイトル、発行主体、版数、
 `;
       break;
     case 'specific_case':
-      outputFormatSection += `
+      outputFormatSection += difficultyLevel === 'standard'
+        ? `
+■ 個別ケースへの回答（簡易）
+・直接適用可能な一次資料を2〜5点だけ特定し、各点について「原文の短い抜粋」と「今回ケースへの当てはめ」をセットで書く
+・判断が分岐する場合は、分岐条件（例: 外部送信/保存/学習の有無）を先に列挙する
+
+【VendorDoc がある場合（契約書/仕様書監査）】
+・監査観点（保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応）ごとに:
+  1) VendorDocの該当箇所（短く引用）
+  2) 記載の評価: 記載あり/未記載/曖昧
+  3) 追加で確認すべき質問（具体）
+`
+        : `
 ■ 個別ケースへの回答
 【直接適用可能な規制・ガイドライン】
 ・根拠文書、該当箇所、原文抜粋、要約

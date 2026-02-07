@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 
 import { TAB_PRESETS, DIFFICULTY_PRESETS, type AppConfig, type DifficultyLevel } from '@/lib/presets';
 import { generatePrompt, generateSearchQueries, configToJSON, parseConfigJSON, encodeConfigToURL } from '@/lib/template';
+import { extractAuditRelevantSnippets, extractTextFromPdfFile } from '@/lib/pdf';
 import { useConfig } from '@/hooks/useConfig';
 import { useMinimalMode } from '@/contexts/MinimalModeContext';
 import {
@@ -152,6 +153,9 @@ export default function Home() {
   const { showBanner: showReturnBanner, lastSearchQuery, dismissBanner, markSearchStarted } = useReturnBanner();
 
   const [showUsageGuide, setShowUsageGuide] = useState(false);
+  const [vendorDocRelevantOnly, setVendorDocRelevantOnly] = useState(true);
+  const [vendorDocLoading, setVendorDocLoading] = useState(false);
+  const [vendorDocProgress, setVendorDocProgress] = useState<{ page: number; totalPagesToRead: number } | null>(null);
   const [sectionsOpen, setSectionsOpen] = useState({
     scope: true,
     audience: true,
@@ -173,6 +177,66 @@ export default function Home() {
     return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   });
   const isExecuteDisabled = !config.query.trim();
+
+  const importVendorDocFromFile = useCallback(async (file: File) => {
+    const lowerName = file.name.toLowerCase();
+    const isPdf = lowerName.endsWith('.pdf') || file.type === 'application/pdf';
+    const isText = lowerName.endsWith('.txt') || file.type.startsWith('text/');
+
+    if (!isPdf && !isText) {
+      toast.error('対応していないファイル形式です', {
+        description: '.pdf または .txt を選択してください',
+      });
+      return;
+    }
+
+    if (isText) {
+      const text = await file.text();
+      updateField('vendorDocText', text);
+      toast.success('添付資料を読み込みました', {
+        description: `${file.name} を取り込みました`,
+      });
+      return;
+    }
+
+    // PDF: extract text locally (no upload).
+    setVendorDocLoading(true);
+    setVendorDocProgress({ page: 0, totalPagesToRead: 0 });
+    try {
+      const extracted = await extractTextFromPdfFile(file, {
+        maxPages: 40,
+        maxChars: 200_000,
+        onProgress: (p) => setVendorDocProgress(p),
+      });
+
+      const baseText = extracted.text.trim();
+      if (!baseText || baseText.length < 200) {
+        toast.warning('PDFから十分なテキストを抽出できませんでした', {
+          description: '画像PDFの可能性があります。契約書からコピーするか、OCR後のテキストを貼り付けてください。',
+        });
+        return;
+      }
+
+      const finalText = vendorDocRelevantOnly
+        ? extractAuditRelevantSnippets(baseText).text
+        : baseText;
+
+      // Keep it reasonably small to avoid localStorage quota issues.
+      const capped = finalText.length > 60_000 ? `${finalText.slice(0, 60_000)}\n\n...(省略)...` : finalText;
+      updateField('vendorDocText', capped);
+
+      toast.success('PDFからテキストを抽出しました', {
+        description: `${Math.min(extracted.readPages, extracted.totalPages)}ページ分を解析しました${vendorDocRelevantOnly ? '（関連条項のみ抽出）' : ''}`,
+      });
+    } catch (err) {
+      toast.error('PDFの読み込みに失敗しました', {
+        description: err instanceof Error ? err.message : '不明なエラー',
+      });
+    } finally {
+      setVendorDocLoading(false);
+      setVendorDocProgress(null);
+    }
+  }, [updateField, vendorDocRelevantOnly]);
 
   // プライバシー警告の検出
   const privacyWarnings = useMemo(() => {
@@ -602,7 +666,7 @@ export default function Home() {
             {/* 1. 探索テーマ - 常に有効 */}
             <div className="simple-card p-2">
               <div className="flex items-center gap-1.5 mb-1">
-                <Label htmlFor="query" className="text-xs font-medium">
+                <Label htmlFor="query" className="text-sm font-medium">
                   探索テーマ
                 </Label>
                 <Tooltip>
@@ -649,7 +713,7 @@ export default function Home() {
             {/* 1.2 添付資料（契約書/仕様書の抜粋など） */}
             <div className="simple-card p-2">
               <div className="flex items-center gap-1.5 mb-1">
-                <Label htmlFor="vendorDoc" className="text-xs font-medium">
+                <Label htmlFor="vendorDoc" className="text-sm font-medium">
                   添付資料（契約書/仕様書の抜粋）
                 </Label>
                 <Tooltip>
@@ -660,7 +724,7 @@ export default function Home() {
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-xs">
                     <p className="text-xs">
-                      ベンダー契約書や仕様書の該当条項を貼り付けると、ガイドライン要求との突合（監査観点）をプロンプトに含めます。PDFの自動読取は未対応なので、必要箇所をテキストで抜粋してください。
+                      ベンダー契約書や仕様書を取り込むと、ガイドライン要求との突合（監査観点）をプロンプトに含めます。PDFは端末内でテキスト抽出します（サーバ送信なし）。画像PDFは抽出できないことがあるため、その場合は条項をコピーするかOCR後のテキストを貼ってください。
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -686,25 +750,57 @@ export default function Home() {
                   クリア
                 </button>
 
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = '.txt,text/plain';
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (!file) return;
-                      const text = await file.text();
-                      updateField('vendorDocText', text);
-                    };
-                    input.click();
-                  }}
-                >
-                  .txtを読み込む
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={vendorDocRelevantOnly}
+                      onCheckedChange={setVendorDocRelevantOnly}
+                      aria-label="関連条項のみ抽出"
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      関連条項だけ抽出（推奨）
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = '.pdf,application/pdf,.txt,text/plain';
+                      input.onchange = async (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (!file) return;
+                        await importVendorDocFromFile(file);
+                      };
+                      input.click();
+                    }}
+                    disabled={vendorDocLoading}
+                  >
+                    PDF/.txtを読み込む
+                  </button>
+                </div>
               </div>
+
+              {vendorDocLoading && vendorDocProgress && (
+                <div className="mt-2">
+                  <Progress
+                    value={
+                      vendorDocProgress.totalPagesToRead > 0
+                        ? Math.round((vendorDocProgress.page / vendorDocProgress.totalPagesToRead) * 100)
+                        : 0
+                    }
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    PDFを解析中: {vendorDocProgress.page}/{vendorDocProgress.totalPagesToRead || '?'}ページ
+                  </p>
+                </div>
+              )}
+
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                監査観点の例: 保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応
+              </p>
             </div>
 
             {/* 1.5. 難易度選択（Phase 5） */}
