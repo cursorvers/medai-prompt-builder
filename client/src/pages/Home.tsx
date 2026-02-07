@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -200,6 +201,20 @@ export default function Home() {
     searchQueries: string[];
     generatedAt: string;
   }>(null);
+  const [hasAttemptedGenerate, setHasAttemptedGenerate] = useState(false);
+  const [vendorDocImport, setVendorDocImport] = useState<null | {
+    kind: 'pdf' | 'txt';
+    fileName: string;
+    totalPages?: number;
+    readPages?: number;
+    partialByPages?: boolean;
+    truncated?: boolean;
+    relevantOnly?: boolean;
+    snippetHitCount?: number;
+    snippetTruncated?: boolean;
+    capped?: boolean;
+  }>(null);
+  const [vendorDocCoverageAck, setVendorDocCoverageAck] = useState(false);
   const [hasExecutedBefore, setHasExecutedBefore] = useState(() => {
     return localStorage.getItem('medai_has_executed') === 'true';
   });
@@ -210,8 +225,9 @@ export default function Home() {
     }
     return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   });
-  const disabledReason = validation.errors[0];
-  const isExecuteDisabled = vendorDocLoading || !validation.isValid;
+  const shouldShowValidation = hasAttemptedGenerate;
+  const disabledReason = shouldShowValidation ? (validation.errors[0] || '') : '';
+  const isExecuteDisabled = vendorDocLoading;
 
   const importVendorDocFromFile = useCallback(async (file: File) => {
     const lowerName = file.name.toLowerCase();
@@ -240,6 +256,8 @@ export default function Home() {
     if (isText) {
       const text = await file.text();
       updateField('vendorDocText', text);
+      setVendorDocImport({ kind: 'txt', fileName: file.name });
+      setVendorDocCoverageAck(false);
       toast.success('添付資料を読み込みました', {
         description: `${file.name} を取り込みました`,
       });
@@ -268,6 +286,16 @@ export default function Home() {
         toast.warning('PDFから十分なテキストを抽出できませんでした', {
           description: `画像PDFの可能性があります。Plan B: ${planB.join(' / ')}`,
         });
+        setVendorDocImport({
+          kind: 'pdf',
+          fileName: file.name,
+          totalPages: extracted.totalPages,
+          readPages: extracted.readPages,
+          partialByPages: extracted.totalPages > extracted.readPages,
+          truncated: extracted.truncated,
+          relevantOnly: vendorDocRelevantOnly,
+        });
+        setVendorDocCoverageAck(false);
         setVendorDocNotice({
           type: 'warning',
           title: 'PDFから十分なテキストを抽出できませんでした',
@@ -277,13 +305,28 @@ export default function Home() {
         return;
       }
 
-      const finalText = vendorDocRelevantOnly
-        ? extractAuditRelevantSnippets(baseText).text
-        : baseText;
+      const snippet = vendorDocRelevantOnly
+        ? extractAuditRelevantSnippets(baseText)
+        : { text: baseText, hitCount: undefined as number | undefined, truncated: false };
+      const finalText = snippet.text;
 
       // Keep it reasonably small to avoid localStorage quota issues.
-      const capped = finalText.length > 60_000 ? `${finalText.slice(0, 60_000)}\n\n...(省略)...` : finalText;
-      updateField('vendorDocText', capped);
+      const wasCapped = finalText.length > 60_000;
+      const cappedText = wasCapped ? `${finalText.slice(0, 60_000)}\n\n...(省略)...` : finalText;
+      updateField('vendorDocText', cappedText);
+      setVendorDocImport({
+        kind: 'pdf',
+        fileName: file.name,
+        totalPages: extracted.totalPages,
+        readPages: extracted.readPages,
+        partialByPages: extracted.totalPages > extracted.readPages,
+        truncated: extracted.truncated,
+        relevantOnly: vendorDocRelevantOnly,
+        snippetHitCount: snippet.hitCount,
+        snippetTruncated: snippet.truncated,
+        capped: wasCapped,
+      });
+      setVendorDocCoverageAck(false);
 
       toast.success('PDFからテキストを抽出しました', {
         description: `${Math.min(extracted.readPages, extracted.totalPages)}ページ分を解析しました${vendorDocRelevantOnly ? '（関連条項のみ抽出）' : ''}`,
@@ -298,6 +341,12 @@ export default function Home() {
       toast.error('PDFの読み込みに失敗しました', {
         description: `Plan B: ${planB.join(' / ')}`,
       });
+      setVendorDocImport({
+        kind: 'pdf',
+        fileName: file.name,
+        relevantOnly: vendorDocRelevantOnly,
+      });
+      setVendorDocCoverageAck(false);
       setVendorDocNotice({
         type: 'error',
         title: 'PDFの読み込みに失敗しました',
@@ -491,9 +540,26 @@ export default function Home() {
 
   // 実行ボタン（Phase 4）
   const handleExecute = useCallback(() => {
+    setHasAttemptedGenerate(true);
+
     if (vendorDocLoading) {
       toast.info('添付資料を読み込み中です', {
         description: '読み込みが終わってから生成してください',
+      });
+      return;
+    }
+
+    const vendorDocNeedsAck =
+      !!config.vendorDocText.trim() &&
+      vendorDocImport?.kind === 'pdf' &&
+      ((vendorDocImport.partialByPages ?? false) ||
+        (vendorDocImport.truncated ?? false) ||
+        (vendorDocImport.snippetTruncated ?? false) ||
+        (vendorDocImport.capped ?? false));
+
+    if (vendorDocNeedsAck && !vendorDocCoverageAck) {
+      toast.error('添付資料は一部のみ読み込まれている可能性があります', {
+        description: '下の「部分読み込みでも生成する」にチェックするか、条項を追加してから生成してください',
       });
       return;
     }
@@ -1180,7 +1246,7 @@ export default function Home() {
                     placeholder="例: 医療AIの臨床導入における安全管理"
                     className={cn(
                       'min-h-24 lg:min-h-40 text-base leading-relaxed',
-                      !config.query && 'border-amber-300/50'
+                      shouldShowValidation && (!config.query.trim() || /（対象を記入）/.test(config.query)) && 'border-amber-300/50'
                     )}
                   />
 
@@ -1232,10 +1298,73 @@ export default function Home() {
                   <Textarea
                     id="vendorDoc"
                     value={config.vendorDocText}
-                    onChange={(e) => updateField('vendorDocText', e.target.value)}
+                    onChange={(e) => {
+                      updateField('vendorDocText', e.target.value);
+                      // If user edits manually, treat it as a conscious excerpt (coverage ack not needed).
+                      setVendorDocImport(null);
+                      setVendorDocCoverageAck(false);
+                    }}
                     placeholder="例: 第X条（データの取扱い）... / 保存期間... / 学習利用の有無... / 再委託... / 監査権限..."
                     className="min-h-32 lg:min-h-56 text-base leading-relaxed"
                   />
+
+                  {vendorDocImport?.kind === 'pdf' && (
+                    <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 p-2 text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium text-foreground">読み込み状況</p>
+                      <p>
+                        ソース: PDF（{vendorDocImport.fileName}）
+                        {typeof vendorDocImport.readPages === 'number' && typeof vendorDocImport.totalPages === 'number' && (
+                          <span className="ml-1">
+                            / {vendorDocImport.totalPages}ページ中 {vendorDocImport.readPages}ページを解析
+                          </span>
+                        )}
+                      </p>
+                      {vendorDocImport.partialByPages && (
+                        <p className="text-amber-700">
+                          注意: 全ページを読めていません（上限ページ数で途中までの可能性）。
+                        </p>
+                      )}
+                      {(vendorDocImport.truncated || vendorDocImport.snippetTruncated || vendorDocImport.capped) && (
+                        <p className="text-amber-700">
+                          注意: 抽出テキストが途中で省略されている可能性があります（容量上限）。
+                        </p>
+                      )}
+                      {vendorDocImport.relevantOnly && (
+                        <p>
+                          モード: 関連条項のみ抽出（抜粋）
+                          {typeof vendorDocImport.snippetHitCount === 'number' && (
+                            <span className="ml-1">/ ヒット: {vendorDocImport.snippetHitCount}箇所</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {(() => {
+                    const vendorDocNeedsAck =
+                      !!config.vendorDocText.trim() &&
+                      vendorDocImport?.kind === 'pdf' &&
+                      ((vendorDocImport.partialByPages ?? false) ||
+                        (vendorDocImport.truncated ?? false) ||
+                        (vendorDocImport.snippetTruncated ?? false) ||
+                        (vendorDocImport.capped ?? false));
+                    if (!vendorDocNeedsAck) return null;
+                    return (
+                      <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        <Checkbox
+                          checked={vendorDocCoverageAck}
+                          onCheckedChange={(v) => setVendorDocCoverageAck(Boolean(v))}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <p className="font-medium">部分読み込みの可能性を理解した上で生成する</p>
+                          <p className="mt-0.5 opacity-90">
+                            このまま生成すると、契約書の見落としが起こり得ます。重要条項はテキストで追記するか、必要ページの抜粋を貼り付けてください。
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {config.aiInScope === 'no' && hasVendorDocAIKeywords && (
                     <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs flex items-start gap-2">
@@ -1253,7 +1382,11 @@ export default function Home() {
                     <button
                       type="button"
                       className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                      onClick={() => updateField('vendorDocText', '')}
+                      onClick={() => {
+                        updateField('vendorDocText', '');
+                        setVendorDocImport(null);
+                        setVendorDocCoverageAck(false);
+                      }}
                     >
                       クリア
                     </button>
