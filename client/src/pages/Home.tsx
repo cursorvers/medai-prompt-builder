@@ -61,6 +61,7 @@ import {
 import { detectPrivacyIssues, getPrivacyWarningMessage } from '@/lib/privacy';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useReturnBanner } from '@/hooks/useReturnBanner';
+import { validateAppConfig } from '@/lib/schemas';
 
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'url', 'password']);
@@ -68,6 +69,44 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'u
 type QueryTemplateId = 'free' | 'compliance_check' | 'responsibility_split';
 
 const DEFAULT_VENDOR_SUBJECT = '添付資料（契約書/仕様書の抜粋）';
+const MAX_VENDOR_DOC_CHARS = 60_000;
+
+function capLongText(
+  raw: string,
+  maxChars: number
+): { text: string; capped: boolean; omittedChars: number } {
+  const text = raw ?? '';
+  if (text.length <= maxChars) return { text, capped: false, omittedChars: 0 };
+
+  // Keep both head and tail to reduce the chance of dropping important clauses
+  // that often appear near the end of contracts/specs.
+  // Ensure the final length stays within maxChars (including marker).
+  let available = Math.max(0, maxChars - 64); // initial guess for marker length
+  let omitted = Math.max(0, text.length - available);
+  let marker = `\n\n...(中略: ${omitted.toLocaleString()}文字省略)...\n\n`;
+  available = Math.max(0, maxChars - marker.length);
+  omitted = Math.max(0, text.length - available);
+  marker = `\n\n...(中略: ${omitted.toLocaleString()}文字省略)...\n\n`;
+
+  const head = Math.floor(available / 2);
+  const tail = available - head;
+  return {
+    text: `${text.slice(0, head)}${marker}${text.slice(Math.max(0, text.length - tail))}`,
+    capped: true,
+    omittedChars: omitted,
+  };
+}
+
+function looksLikeUrlsOnly(text: string): boolean {
+  const t = (text || '').trim();
+  if (!t) return false;
+  if (t.length > 500) return false;
+  const tokens = t.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+  // Accept 1-3 URLs, nothing else.
+  if (tokens.length > 3) return false;
+  return tokens.every(tok => /^https?:\/\/\S+$/i.test(tok));
+}
 
 function extractSubjectFromQuery(raw: string) {
   const q = raw.trim();
@@ -193,6 +232,7 @@ export default function Home() {
   }>(null);
   const [isVendorDocDragActive, setIsVendorDocDragActive] = useState(false);
   const vendorDocDragCounterRef = useRef(0);
+  const vendorDocCappedToastRef = useRef(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [queryTemplateId, setQueryTemplateId] = useState<QueryTemplateId>('free');
@@ -204,7 +244,7 @@ export default function Home() {
   }>(null);
   const [hasAttemptedGenerate, setHasAttemptedGenerate] = useState(false);
   const [vendorDocImport, setVendorDocImport] = useState<null | {
-    kind: 'pdf' | 'txt';
+    kind: 'pdf' | 'txt' | 'manual';
     fileName: string;
     totalPages?: number;
     readPages?: number;
@@ -283,19 +323,27 @@ export default function Home() {
     }
 
     if (isText) {
-      const text = await file.text();
-      updateField('vendorDocText', text);
-      maybeAutofillQueryForVendorDoc(text);
-      setVendorDocImport({ kind: 'txt', fileName: file.name });
+      const raw = await file.text();
+      const capped = capLongText(raw, MAX_VENDOR_DOC_CHARS);
+      updateField('vendorDocText', capped.text);
+      maybeAutofillQueryForVendorDoc(capped.text);
+      setVendorDocImport({ kind: 'txt', fileName: file.name, capped: capped.capped });
       setVendorDocCoverageAck(false);
       toast.success('添付資料を読み込みました', {
         description: `${file.name} を取り込みました`,
       });
       setVendorDocNotice({
-        type: 'info',
-        title: '添付資料を読み込みました',
-        message: `${file.name} を取り込みました。`,
-        planB: [],
+        type: capped.capped ? 'warning' : 'info',
+        title: capped.capped ? '添付資料が長いため一部を省略しました' : '添付資料を読み込みました',
+        message: capped.capped
+          ? `${file.name} は長いため一部を省略しました（約 ${capped.omittedChars.toLocaleString()} 文字）。重要条項は抜粋を追記してください。`
+          : `${file.name} を取り込みました。`,
+        planB: capped.capped
+          ? [
+              '重要条項（責任分界/免責/賠償/再委託/監査権/越境移転/削除/ログ/事故対応）を追加で抜粋して貼り付け',
+              '監査対象ページだけを抽出したPDF/.txtを再作成して読み込み',
+            ]
+          : [],
       });
       return;
     }
@@ -338,10 +386,9 @@ export default function Home() {
       const finalText = snippetEmpty ? baseText : snippet.text;
 
       // Keep it reasonably small to avoid localStorage quota issues.
-      const wasCapped = finalText.length > 60_000;
-      const cappedText = wasCapped ? `${finalText.slice(0, 60_000)}\n\n...(省略)...` : finalText;
-      updateField('vendorDocText', cappedText);
-      maybeAutofillQueryForVendorDoc(cappedText);
+      const capped = capLongText(finalText, MAX_VENDOR_DOC_CHARS);
+      updateField('vendorDocText', capped.text);
+      maybeAutofillQueryForVendorDoc(capped.text);
       setVendorDocImport({
         kind: 'pdf',
         fileName: file.name,
@@ -353,7 +400,7 @@ export default function Home() {
         relevantOnly: snippetEmpty ? false : vendorDocRelevantOnly,
         snippetHitCount: snippetEmpty ? 0 : snippet.hitCount,
         snippetTruncated: snippet.truncated,
-        capped: wasCapped,
+        capped: capped.capped,
       });
       setVendorDocCoverageAck(false);
 
@@ -588,28 +635,6 @@ export default function Home() {
 
   // 実行ボタン（Phase 4）
   const handleExecute = useCallback(() => {
-    // If the user attached a contract/spec first (common), avoid blocking them
-    // with "対象を記入" errors. Fill a safe default theme and let them re-run.
-    if (
-      !!config.vendorDocText.trim() &&
-      (!config.query.trim() || /（対象を記入）/.test(config.query))
-    ) {
-      const templateToUse: QueryTemplateId = !config.query.trim()
-        ? (queryTemplateId === 'free' ? 'compliance_check' : queryTemplateId)
-        : queryTemplateId;
-      const filled = !config.query.trim()
-        ? buildQueryFromTemplate(templateToUse, DEFAULT_VENDOR_SUBJECT)
-        : config.query.replace(/（対象を記入）/g, DEFAULT_VENDOR_SUBJECT);
-      updateField('query', filled);
-      if (templateToUse !== 'free') {
-        setQueryTemplateId(templateToUse);
-      }
-      toast.info('探索テーマを自動入力しました', {
-        description: 'もう一度「プロンプトを生成」を押してください（必要ならテーマを編集できます）。',
-      });
-      return;
-    }
-
     setHasAttemptedGenerate(true);
 
     if (vendorDocLoading) {
@@ -619,13 +644,34 @@ export default function Home() {
       return;
     }
 
+    // If the user attached a contract/spec first (common), avoid blocking them
+    // with "（対象を記入）" errors. Fill a safe default theme and proceed.
+    let effectiveConfig: AppConfig = config;
+    if (!!config.vendorDocText.trim() && (!config.query.trim() || /（対象を記入）/.test(config.query))) {
+      const templateToUse: QueryTemplateId = !config.query.trim()
+        ? (queryTemplateId === 'free' ? 'compliance_check' : queryTemplateId)
+        : queryTemplateId;
+      const filled = !config.query.trim()
+        ? buildQueryFromTemplate(templateToUse, DEFAULT_VENDOR_SUBJECT)
+        : config.query.replace(/（対象を記入）/g, DEFAULT_VENDOR_SUBJECT);
+
+      updateField('query', filled);
+      if (templateToUse !== 'free') {
+        setQueryTemplateId(templateToUse);
+      }
+
+      effectiveConfig = { ...config, query: filled };
+      toast.info('探索テーマを自動入力しました', {
+        description: '添付資料があるため、まずは契約/仕様の監査を進めます（必要なら編集できます）。',
+      });
+    }
+
     const vendorDocNeedsAck =
-      !!config.vendorDocText.trim() &&
-      vendorDocImport?.kind === 'pdf' &&
-      ((vendorDocImport.partialByPages ?? false) ||
-        (vendorDocImport.truncated ?? false) ||
-        (vendorDocImport.snippetTruncated ?? false) ||
-        (vendorDocImport.capped ?? false));
+      !!effectiveConfig.vendorDocText.trim() &&
+      ((vendorDocImport?.partialByPages ?? false) ||
+        (vendorDocImport?.truncated ?? false) ||
+        (vendorDocImport?.snippetTruncated ?? false) ||
+        (vendorDocImport?.capped ?? false));
 
     if (vendorDocNeedsAck && !vendorDocCoverageAck) {
       toast.error('添付資料は一部のみ読み込まれている可能性があります', {
@@ -634,19 +680,40 @@ export default function Home() {
       return;
     }
 
-    if (!validation.isValid) {
-      toast.error(validation.errors[0] || '入力内容を確認してください');
+    // Guard: URLしか貼られていない場合は、LLMが本文に到達できず事故りやすいので止める。
+    if (looksLikeUrlsOnly(effectiveConfig.vendorDocText)) {
+      const planB = [
+        'PDF/.txt を「PDF/.txtを読み込む」で取り込む（端末内でテキスト抽出します）',
+        '該当条項をコピーして貼り付け（責任分界/免責/賠償/再委託/監査権/越境移転/削除/ログ/事故対応）',
+        '画像PDFならOCRでテキスト化して貼り付け（macOS プレビュー等）',
+      ];
+      toast.error('添付資料はURLだけでは監査できません', {
+        description: `Plan B: ${planB.join(' / ')}`,
+      });
+      setVendorDocNotice({
+        type: 'error',
+        title: '添付資料がURLのみのため監査できません',
+        message: '共有ドライブ等のURLは、LLMやブラウザ側でアクセスできないことが多く、本文の引用・監査が成立しません。添付欄には本文テキスト（抜粋）を入れてください。',
+        planB,
+      });
       return;
     }
 
-    if (!config.query.trim()) {
+    const validated = validateAppConfig(effectiveConfig);
+    if (!validated.success) {
+      toast.error('入力内容を確認してください');
+      return;
+    }
+
+    if (!effectiveConfig.query.trim()) {
       toast.error('探索テーマを入力してください');
       return;
     }
 
-    // プライバシー警告がある場合は確認
-    if (hasPrivacyWarning) {
-      const warningMsg = getPrivacyWarningMessage(privacyWarnings);
+    // プライバシー警告がある場合は確認（自動補完後のテーマにも対応）
+    const effectivePrivacyWarnings = detectPrivacyIssues(effectiveConfig.query);
+    if (effectivePrivacyWarnings.length > 0) {
+      const warningMsg = getPrivacyWarningMessage(effectivePrivacyWarnings, 'query');
       toast.warning(warningMsg, {
         duration: 5000,
         description: '検索クエリに機微情報が含まれないか確認してください',
@@ -654,26 +721,26 @@ export default function Home() {
     }
 
     // 監査ログに記録
-    const prompt = generatePrompt(config);
-    const queries = generateSearchQueries(config);
+    const prompt = generatePrompt(effectiveConfig);
+    const queries = generateSearchQueries(effectiveConfig);
 
     setGenerated({
-      configSnapshot: config,
+      configSnapshot: effectiveConfig,
       prompt,
       searchQueries: queries,
       generatedAt: new Date().toISOString(),
     });
 
     addAuditEntry({
-      preset: config.activeTab,
+      preset: effectiveConfig.activeTab,
       presetName: currentPreset.name,
-      theme: config.query,
-      difficulty: config.difficultyLevel,
+      theme: effectiveConfig.query,
+      difficulty: effectiveConfig.difficultyLevel,
       searchQueries: queries,
     });
 
     // アナリティクス記録
-    trackExecutePrompt(config.activeTab, config.customKeywords.length > 0);
+    trackExecutePrompt(effectiveConfig.activeTab, effectiveConfig.customKeywords.length > 0);
 
     // 成功フィードバック
     toast.success('プロンプトを生成しました', {
@@ -691,7 +758,7 @@ export default function Home() {
       setShowIntroModal(true);
       setHasExecutedBefore(true);
     }
-  }, [config, hasExecutedBefore, hasPrivacyWarning, privacyWarnings, currentPreset, addAuditEntry, validation, vendorDocLoading]);
+  }, [config, hasExecutedBefore, currentPreset, addAuditEntry, vendorDocLoading, vendorDocCoverageAck, vendorDocImport, queryTemplateId, updateField]);
 
   const handleReset = useCallback(() => {
     setGenerated(null);
@@ -1336,7 +1403,7 @@ export default function Home() {
                       <div className="text-amber-700 dark:text-amber-400">
                         <p className="font-medium mb-0.5">機微情報の可能性を検出</p>
                         <p className="text-amber-600 dark:text-amber-500">
-                          {getPrivacyWarningMessage(privacyWarnings)}
+                          {getPrivacyWarningMessage(privacyWarnings, 'query')}
                         </p>
                       </div>
                     </div>
@@ -1379,11 +1446,34 @@ export default function Home() {
                     id="vendorDoc"
                     value={config.vendorDocText}
                     onChange={(e) => {
-                      const next = e.target.value;
-                      updateField('vendorDocText', next);
-                      maybeAutofillQueryForVendorDoc(next);
-                      // If user edits manually, treat it as a conscious excerpt (coverage ack not needed).
-                      setVendorDocImport(null);
+                      const raw = e.target.value;
+                      const capped = capLongText(raw, MAX_VENDOR_DOC_CHARS);
+                      updateField('vendorDocText', capped.text);
+                      maybeAutofillQueryForVendorDoc(capped.text);
+
+                      // If user edits manually, treat it as a conscious excerpt.
+                      // However, if we had to cap it, require an explicit ack to avoid silent partial coverage.
+                      if (capped.capped) {
+                        setVendorDocImport({ kind: 'manual', fileName: '貼り付け', capped: true });
+                        setVendorDocNotice({
+                          type: 'warning',
+                          title: '添付資料が長いため一部を省略しました',
+                          message: `貼り付け内容が長いため一部を省略しました（約 ${capped.omittedChars.toLocaleString()} 文字）。重要条項は抜粋を追記してください。`,
+                          planB: [
+                            '重要条項（責任分界/免責/賠償/再委託/監査権/越境移転/削除/ログ/事故対応）を追加で抜粋して貼り付け',
+                            '監査対象ページだけのPDF/.txtにして読み込み',
+                          ],
+                        });
+                        if (!vendorDocCappedToastRef.current) {
+                          vendorDocCappedToastRef.current = true;
+                          toast.warning('添付資料が長いため一部を省略しました', {
+                            description: '見落とし防止のため、重要条項は抜粋を追記してください',
+                          });
+                        }
+                      } else {
+                        vendorDocCappedToastRef.current = false;
+                        setVendorDocImport(null);
+                      }
                       setVendorDocCoverageAck(false);
                     }}
                     placeholder="例: 第X条（データの取扱い）... / 保存期間... / 学習利用の有無... / 再委託... / 監査権限..."
@@ -1396,7 +1486,7 @@ export default function Home() {
                       <div className="text-amber-700 dark:text-amber-400">
                         <p className="font-medium mb-0.5">添付資料に個人情報が含まれている可能性</p>
                         <p className="text-amber-600 dark:text-amber-500">
-                          {getPrivacyWarningMessage(vendorDocPrivacyWarnings)}
+                          {getPrivacyWarningMessage(vendorDocPrivacyWarnings, 'vendor_doc')}
                         </p>
                         <p className="text-amber-600 dark:text-amber-500 mt-1">
                           LLMに貼り付ける前に、氏名/電話/住所/口座番号などの伏字を推奨します。
@@ -1405,18 +1495,25 @@ export default function Home() {
                     </div>
                   )}
 
-                  {vendorDocImport?.kind === 'pdf' && (
+                  {vendorDocImport && (
                     <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 p-2 text-xs text-muted-foreground space-y-1">
                       <p className="font-medium text-foreground">読み込み状況</p>
                       <p>
-                        ソース: PDF（{vendorDocImport.fileName}）
-                        {typeof vendorDocImport.readPages === 'number' && typeof vendorDocImport.totalPages === 'number' && (
-                          <span className="ml-1">
-                            / {vendorDocImport.totalPages}ページ中 {vendorDocImport.readPages}ページを解析
-                          </span>
-                        )}
+                        ソース:{' '}
+                        {vendorDocImport.kind === 'pdf'
+                          ? `PDF（${vendorDocImport.fileName}）`
+                          : vendorDocImport.kind === 'txt'
+                            ? `TXT（${vendorDocImport.fileName}）`
+                            : `貼り付け`}
+                        {vendorDocImport.kind === 'pdf' &&
+                          typeof vendorDocImport.readPages === 'number' &&
+                          typeof vendorDocImport.totalPages === 'number' && (
+                            <span className="ml-1">
+                              / {vendorDocImport.totalPages}ページ中 {vendorDocImport.readPages}ページを解析
+                            </span>
+                          )}
                       </p>
-                      {vendorDocImport.partialByPages && (
+                      {vendorDocImport.kind === 'pdf' && vendorDocImport.partialByPages && (
                         <p className="text-amber-700">
                           注意: 全ページを読めていません（上限ページ数で途中までの可能性）。
                         </p>
@@ -1426,7 +1523,7 @@ export default function Home() {
                           注意: 抽出テキストが途中で省略されている可能性があります（容量上限）。
                         </p>
                       )}
-                      {vendorDocImport.relevantOnly && (
+                      {vendorDocImport.kind === 'pdf' && vendorDocImport.relevantOnly && (
                         <p>
                           モード: 関連条項のみ抽出（抜粋）
                           {typeof vendorDocImport.snippetHitCount === 'number' && (
@@ -1440,11 +1537,10 @@ export default function Home() {
                   {(() => {
                     const vendorDocNeedsAck =
                       !!config.vendorDocText.trim() &&
-                      vendorDocImport?.kind === 'pdf' &&
-                      ((vendorDocImport.partialByPages ?? false) ||
-                        (vendorDocImport.truncated ?? false) ||
-                        (vendorDocImport.snippetTruncated ?? false) ||
-                        (vendorDocImport.capped ?? false));
+                      ((vendorDocImport?.partialByPages ?? false) ||
+                        (vendorDocImport?.truncated ?? false) ||
+                        (vendorDocImport?.snippetTruncated ?? false) ||
+                        (vendorDocImport?.capped ?? false));
                     if (!vendorDocNeedsAck) return null;
                     return (
                       <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

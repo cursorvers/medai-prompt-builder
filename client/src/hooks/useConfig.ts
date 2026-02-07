@@ -27,6 +27,17 @@ import { decodeConfigFromURL } from '@/lib/template';
 import { parseAppConfig } from '@/lib/schemas';
 import { loadExtendedSettings, saveExtendedSettings } from '@/lib/settings';
 
+const MAX_VENDOR_DOC_CHARS = 60_000;
+
+function capVendorDocText(text: string): string {
+  const t = text ?? '';
+  if (t.length <= MAX_VENDOR_DOC_CHARS) return t;
+  // Keep it simple here: localStorage safety > perfect fidelity.
+  return `${t.slice(0, MAX_VENDOR_DOC_CHARS)}\n\n...(省略: ${(
+    t.length - MAX_VENDOR_DOC_CHARS
+  ).toLocaleString()}文字)...\n`;
+}
+
 function syncExtendedSettingsForDifficulty(level: DifficultyLevel) {
   // Keep Settings page toggles aligned with the chosen difficulty.
   // generatePrompt still applies its own difficulty clamping, but without this
@@ -92,7 +103,8 @@ export function useConfig() {
       if (validated) {
         // Clear the URL parameter after loading
         window.history.replaceState({}, '', window.location.pathname);
-        return normalizeConfig(validated);
+        const normalized = normalizeConfig(validated);
+        return { ...normalized, vendorDocText: capVendorDocText(normalized.vendorDocText || '') };
       }
       console.warn('URL config validation failed, trying localStorage');
     }
@@ -105,7 +117,8 @@ export function useConfig() {
         // Validate with Zod schema
         const validated = parseAppConfig(parsed);
         if (validated) {
-          return normalizeConfig(validated);
+          const normalized = normalizeConfig(validated);
+          return { ...normalized, vendorDocText: capVendorDocText(normalized.vendorDocText || '') };
         }
         console.warn('LocalStorage config validation failed, using defaults');
       }
@@ -138,6 +151,9 @@ export function useConfig() {
       syncExtendedSettingsForDifficulty(value as DifficultyLevel);
     }
     setConfig(prev => {
+      if (field === 'vendorDocText' && typeof value === 'string') {
+        return { ...prev, vendorDocText: capVendorDocText(value) } as AppConfig;
+      }
       if (field === 'difficultyLevel' && value === 'standard') {
         // Standard is meant to be "light and safe" for general clinicians.
         // Keep user's inputs, but reset defaults to a clinical-operation profile.
@@ -299,7 +315,8 @@ export function useConfig() {
   const importConfig = useCallback((json: string): boolean => {
     const validated = parseConfigJSON(json);
     if (validated) {
-      setConfig(normalizeConfig(validated));
+      const normalized = normalizeConfig(validated);
+      setConfig({ ...normalized, vendorDocText: capVendorDocText(normalized.vendorDocText || '') });
       return true;
     }
     return false;
