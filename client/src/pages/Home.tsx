@@ -69,6 +69,15 @@ type QueryTemplateId = 'free' | 'compliance_check' | 'responsibility_split';
 
 const DEFAULT_VENDOR_SUBJECT = '添付資料（契約書/仕様書の抜粋）';
 const MAX_VENDOR_DOC_CHARS = 60_000;
+const VENDOR_DOC_EXCERPT_TEMPLATE = `【契約書/仕様書 抜粋テンプレ（ここに該当箇所を貼る）】
+1) 責任分界（誰が何をやるか）
+2) 免責/賠償（上限、逸失利益、間接損害、データ消失）
+3) 再委託/第三者提供/共同利用（事前承認、条件）
+4) 保存/越境移転（保存場所、バックアップ、国外、クラウド事業者）
+5) 削除/返却（解約後、削除証明、返却手順、期限）
+6) ログ/監査（監査権、ログ提供、保存期間）
+7) 事故対応（報告期限、初報、復旧支援、BCP、SLA）
+`;
 
 function capLongText(
   raw: string,
@@ -1587,6 +1596,26 @@ export default function Home() {
                     </button>
 
                     <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                        onClick={() => {
+                          const current = (config.vendorDocText || '').trim();
+                          const next = current
+                            ? `${current}\n\n---\n\n${VENDOR_DOC_EXCERPT_TEMPLATE}`
+                            : VENDOR_DOC_EXCERPT_TEMPLATE;
+                          updateField('vendorDocText', next);
+                          maybeAutofillQueryForVendorDoc(next);
+                          setVendorDocImport(null);
+                          setVendorDocCoverageAck(false);
+                          toast.success('抜粋テンプレを挿入しました', {
+                            description: 'この枠に該当条項のテキストを貼り付けてください',
+                          });
+                        }}
+                      >
+                        抜粋テンプレ
+                      </button>
+
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={vendorDocRelevantOnly}
