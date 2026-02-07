@@ -882,6 +882,9 @@ export default function Home() {
                 <span className="font-medium">対応LLM:</span> Google Gemini、ChatGPT、Claude、Perplexity、Microsoft Copilot など、Web検索機能を持つLLMで使用できます。
               </p>
               <p className="text-xs text-muted-foreground mt-1">
+                <span className="font-medium">MCPで使う場合:</span> MCP対応の環境（Web取得ツールやファイル読込ツールが使えるエージェント）で、このプロンプトをそのまま実行してください。本ツールは一次資料の取得自体は行わないため、MCP側で公式ページ/PDFへアクセスして引用を付ける運用が前提です。契約書監査は、条項テキストを貼るか、MCPのファイル読込で該当条項を読み込ませてから実行すると精度が上がります。
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
                 <span className="font-medium">品質の目安:</span> モデル性能や検索機能の有無で、引用の正確さや見落としが変わります。可能なら高性能モデル（有料プラン）を推奨します。無料版でも利用できますが、一次資料のリンクと引用を必ず確認してください。
               </p>
             </div>
