@@ -722,9 +722,9 @@ export default function Home() {
         )}
 
         {/* メインコンテンツ */}
-        <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-          {/* 左カラム: 設定 */}
-          <div className="space-y-2">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          {/* 右カラム(Desktop): 設定サイドバー */}
+          <div className="space-y-2 order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7.5rem)] lg:overflow-auto lg:pr-1">
             {/* Phase 6: 設定完了度インジケーター */}
             <div className="simple-card p-2 bg-primary/5 border-primary/20">
               <div className="flex items-center justify-between mb-1">
@@ -746,183 +746,6 @@ export default function Home() {
                   </span>
                 )}
               </div>
-            </div>
-
-            {/* 1. 探索テーマ - 常に有効 */}
-            <div className="simple-card p-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Label htmlFor="query" className="text-sm font-medium">
-                  探索テーマ
-                </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <HelpCircle className="w-3 h-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <p className="text-xs">
-                      プロンプト生成の中心となる質問やテーマです。具体的な状況や目的を入力すると、より的確な検索結果が得られます。
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                  必須
-                </span>
-              </div>
-              <Textarea
-                id="query"
-                value={config.query}
-                onChange={(e) => updateField('query', e.target.value)}
-                placeholder="例: 医療AIの臨床導入における安全管理"
-                className={cn(
-                  "min-h-12 text-sm leading-relaxed",
-                  !config.query && "border-amber-300/50"
-                )}
-              />
-
-              {/* プライバシー警告 */}
-              {hasPrivacyWarning && (
-                <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
-                  <div className="text-amber-700 dark:text-amber-400">
-                    <p className="font-medium mb-0.5">機微情報の可能性を検出</p>
-                    <p className="text-amber-600 dark:text-amber-500">
-                      {getPrivacyWarningMessage(privacyWarnings)}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 1.2 添付資料（契約書/仕様書の抜粋など） */}
-            <div
-              className={cn(
-                'simple-card p-2 transition-colors',
-                isVendorDocDragActive && 'ring-2 ring-primary/35 bg-primary/5'
-              )}
-              onDragEnter={handleVendorDocDragEnter}
-              onDragLeave={handleVendorDocDragLeave}
-              onDragOver={handleVendorDocDragOver}
-              onDrop={handleVendorDocDrop}
-            >
-              <div className="flex items-center gap-1.5 mb-1">
-                <Label htmlFor="vendorDoc" className="text-sm font-medium">
-                  添付資料（契約書/仕様書の抜粋）
-                </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <HelpCircle className="w-3 h-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <p className="text-xs">
-                      ベンダー契約書や仕様書を取り込むと、ガイドライン要求との突合（監査観点）をプロンプトに含めます。PDFは端末内でテキスト抽出します（サーバ送信なし）。画像PDFは抽出できないことがあるため、その場合は条項をコピーするかOCR後のテキストを貼ってください。
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  任意
-                </span>
-              </div>
-
-              <Textarea
-                id="vendorDoc"
-                value={config.vendorDocText}
-                onChange={(e) => updateField('vendorDocText', e.target.value)}
-                placeholder="例: 第X条（データの取扱い）... / 保存期間... / 学習利用の有無... / 再委託... / 監査権限..."
-                className="min-h-24 text-sm leading-relaxed"
-              />
-
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                  onClick={() => updateField('vendorDocText', '')}
-                >
-                  クリア
-                </button>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={vendorDocRelevantOnly}
-                      onCheckedChange={setVendorDocRelevantOnly}
-                      aria-label="関連条項のみ抽出"
-                    />
-                    <span className="text-[11px] text-muted-foreground">
-                      関連条項だけ抽出（推奨）
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = '.pdf,application/pdf,.txt,text/plain';
-                      input.onchange = async (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (!file) return;
-                        await importVendorDocFromFile(file);
-                      };
-                      input.click();
-                    }}
-                    disabled={vendorDocLoading}
-                  >
-                    PDF/.txtを読み込む
-                  </button>
-                </div>
-              </div>
-
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                PDF/.txtはドラッグ&ドロップにも対応しています（この枠内にドロップ）。
-              </p>
-
-              {vendorDocLoading && vendorDocProgress && (
-                <div className="mt-2">
-                  <Progress
-                    value={
-                      vendorDocProgress.totalPagesToRead > 0
-                        ? Math.round((vendorDocProgress.page / vendorDocProgress.totalPagesToRead) * 100)
-                        : 0
-                    }
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    PDFを解析中: {vendorDocProgress.page}/{vendorDocProgress.totalPagesToRead || '?'}ページ
-                  </p>
-                </div>
-              )}
-
-              {vendorDocNotice && (
-                <div
-                  className={cn(
-                    'mt-2 rounded-lg border p-2 text-xs',
-                    vendorDocNotice.type === 'info' && 'bg-slate-50 border-slate-200 text-slate-700',
-                    vendorDocNotice.type === 'warning' && 'bg-amber-50 border-amber-200 text-amber-800',
-                    vendorDocNotice.type === 'error' && 'bg-red-50 border-red-200 text-red-800',
-                  )}
-                >
-                  <p className="font-medium">{vendorDocNotice.title}</p>
-                  <p className="mt-1 opacity-90">{vendorDocNotice.message}</p>
-                  {vendorDocNotice.planB.length > 0 && (
-                    <>
-                      <p className="mt-2 font-medium">Plan B（代替手段）</p>
-                      <ol className="mt-1 list-decimal list-inside space-y-0.5">
-                        {vendorDocNotice.planB.map((s) => (
-                          <li key={s}>{s}</li>
-                        ))}
-                      </ol>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                監査観点の例: 保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応
-              </p>
             </div>
 
             {/* 1.5. 難易度選択（Phase 5） */}
@@ -1332,14 +1155,195 @@ console.log(result.prompt);`}</pre>
             </Collapsible>
           </ComingSoonOverlay>
 
-            {/* 10. 実行ボタン（Phase 4） */}
-            <div className="simple-card p-4 bg-gradient-to-br from-primary/10 to-primary/5 hidden lg:block">
-              <ExecuteButtonBar onExecute={handleExecute} disabled={isExecuteDisabled} />
-            </div>
           </div>
 
           {/* 右カラム: 出力 */}
-          <div className="simple-card p-0 overflow-hidden" data-output-panel>
+          <div className="simple-card p-0 overflow-hidden order-1 lg:order-none lg:col-start-1 lg:row-start-1" data-output-panel>
+            {/* Primary Inputs (Desktop-first): make the core workflow obvious */}
+            <div className="p-3 lg:p-4 border-b border-border bg-muted/20">
+              <div className="grid gap-3">
+                {/* 探索テーマ */}
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="query" className="text-base font-semibold">
+                      探索テーマ
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-muted-foreground hover:text-foreground">
+                          <HelpCircle className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">
+                          プロンプト生成の中心となる質問やテーマです。具体的な状況や目的を入力すると、より的確な検索結果が得られます。
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                      必須
+                    </span>
+                  </div>
+                  <Textarea
+                    id="query"
+                    value={config.query}
+                    onChange={(e) => updateField('query', e.target.value)}
+                    placeholder="例: 医療AIの臨床導入における安全管理"
+                    className={cn(
+                      'min-h-24 lg:min-h-40 text-base leading-relaxed',
+                      !config.query && 'border-amber-300/50'
+                    )}
+                  />
+
+                  {hasPrivacyWarning && (
+                    <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs flex items-start gap-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                      <div className="text-amber-700 dark:text-amber-400">
+                        <p className="font-medium mb-0.5">機微情報の可能性を検出</p>
+                        <p className="text-amber-600 dark:text-amber-500">
+                          {getPrivacyWarningMessage(privacyWarnings)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 添付資料（契約書/仕様書） */}
+                <div
+                  className={cn(
+                    'rounded-lg border border-border bg-card p-3 transition-colors',
+                    isVendorDocDragActive && 'ring-2 ring-primary/35 bg-primary/5'
+                  )}
+                  onDragEnter={handleVendorDocDragEnter}
+                  onDragLeave={handleVendorDocDragLeave}
+                  onDragOver={handleVendorDocDragOver}
+                  onDrop={handleVendorDocDrop}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Label htmlFor="vendorDoc" className="text-base font-semibold">
+                      添付資料（契約書/仕様書の抜粋）
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-muted-foreground hover:text-foreground">
+                          <HelpCircle className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">
+                          ベンダー契約書や仕様書を取り込むと、ガイドライン要求との突合（監査観点）をプロンプトに含めます。PDFは端末内でテキスト抽出します（サーバ送信なし）。画像PDFは抽出できないことがあるため、その場合は条項をコピーするかOCR後のテキストを貼ってください。
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      任意
+                    </span>
+                  </div>
+
+                  <Textarea
+                    id="vendorDoc"
+                    value={config.vendorDocText}
+                    onChange={(e) => updateField('vendorDocText', e.target.value)}
+                    placeholder="例: 第X条（データの取扱い）... / 保存期間... / 学習利用の有無... / 再委託... / 監査権限..."
+                    className="min-h-32 lg:min-h-56 text-base leading-relaxed"
+                  />
+
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      onClick={() => updateField('vendorDocText', '')}
+                    >
+                      クリア
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={vendorDocRelevantOnly}
+                          onCheckedChange={setVendorDocRelevantOnly}
+                          aria-label="関連条項のみ抽出"
+                        />
+                        <span className="text-[11px] text-muted-foreground">
+                          関連条項だけ抽出（推奨）
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.pdf,application/pdf,.txt,text/plain';
+                          input.onchange = async (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (!file) return;
+                            await importVendorDocFromFile(file);
+                          };
+                          input.click();
+                        }}
+                        disabled={vendorDocLoading}
+                      >
+                        PDF/.txtを読み込む
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    PDF/.txtはドラッグ&ドロップにも対応しています（この枠内にドロップ）。
+                  </p>
+
+                  {vendorDocLoading && vendorDocProgress && (
+                    <div className="mt-2">
+                      <Progress
+                        value={
+                          vendorDocProgress.totalPagesToRead > 0
+                            ? Math.round((vendorDocProgress.page / vendorDocProgress.totalPagesToRead) * 100)
+                            : 0
+                        }
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        PDFを解析中: {vendorDocProgress.page}/{vendorDocProgress.totalPagesToRead || '?'}ページ
+                      </p>
+                    </div>
+                  )}
+
+                  {vendorDocNotice && (
+                    <div
+                      className={cn(
+                        'mt-2 rounded-lg border p-2 text-xs',
+                        vendorDocNotice.type === 'info' && 'bg-slate-50 border-slate-200 text-slate-700',
+                        vendorDocNotice.type === 'warning' && 'bg-amber-50 border-amber-200 text-amber-800',
+                        vendorDocNotice.type === 'error' && 'bg-red-50 border-red-200 text-red-800',
+                      )}
+                    >
+                      <p className="font-medium">{vendorDocNotice.title}</p>
+                      <p className="mt-1 opacity-90">{vendorDocNotice.message}</p>
+                      {vendorDocNotice.planB.length > 0 && (
+                        <>
+                          <p className="mt-2 font-medium">Plan B（代替手段）</p>
+                          <ol className="mt-1 list-decimal list-inside space-y-0.5">
+                            {vendorDocNotice.planB.map((s) => (
+                              <li key={s}>{s}</li>
+                            ))}
+                          </ol>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    監査観点の例: 保存/学習利用/再委託/監査権/越境移転/削除/ログ/事故対応
+                  </p>
+                </div>
+
+                <div className="hidden lg:block">
+                  <ExecuteButtonBar onExecute={handleExecute} disabled={isExecuteDisabled} />
+                </div>
+              </div>
+            </div>
+
             <Tabs defaultValue="prompt" className="h-full flex flex-col">
               <div className="flex items-center justify-between border-b border-border px-3 py-2">
                 <TabsList className="h-8">
@@ -1394,7 +1398,7 @@ console.log(result.prompt);`}</pre>
                   {!config.query ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                       <span className="text-yellow-600 mr-2">⚠</span>
-                      探索テーマを入力してください
+                      上の探索テーマを入力してください（右側で設定を調整できます）
                     </div>
                   ) : (
                     <pre className="p-4 text-sm whitespace-pre-wrap font-mono leading-relaxed">
